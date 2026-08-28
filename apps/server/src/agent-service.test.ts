@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentService } from "./agent-service.js";
 import { loadConfig } from "./config.js";
+import { RunCancelledError } from "./errors.js";
 import { JsonStore } from "./store.js";
 import type { AgentRunner, RunnerRequest, RunnerResult } from "./types.js";
 import { WorkspaceManager } from "./workspace.js";
@@ -129,5 +130,29 @@ describe("Agent lifecycle", () => {
 
     finish({ output: "done", threadId: "thread", usage: null });
     await expect.poll(() => service.getRun(run.id).status).toBe("completed");
+  });
+
+  it("waits for and cancels a specific Run without stopping the Agent", async () => {
+    let rejectRun!: (reason: Error) => void;
+    const service = await makeService({
+      run: () =>
+        new Promise<RunnerResult>((_resolve, reject) => {
+          rejectRun = reject;
+        }),
+      cancel: async () => {
+        rejectRun(new RunCancelledError());
+        return true;
+      },
+      isAvailable: async () => true,
+    });
+    const agent = await service.createAgent({ name: "Cancellable" });
+    const { run } = await service.sendMessage(agent.id, "long task");
+    await expect.poll(() => service.getRun(run.id).status).toBe("running");
+
+    await expect(service.cancelRun(run.id)).resolves.toBe(true);
+    await expect(service.waitForRun(run.id)).resolves.toMatchObject({
+      status: "cancelled",
+    });
+    expect(service.getAgent(agent.id).status).toBe("ready");
   });
 });

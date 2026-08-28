@@ -388,7 +388,10 @@ export default function App() {
 
       <main className="main">
         {activeView === "coordination" ? (
-          <CoordinationWorkspace agents={agents} />
+          <CoordinationWorkspace
+            agents={agents}
+            executorMode={system?.coordinationExecutor ?? "fake"}
+          />
         ) : (
           <>
         {!system?.arkConfigured || !system?.codexAvailable ? (

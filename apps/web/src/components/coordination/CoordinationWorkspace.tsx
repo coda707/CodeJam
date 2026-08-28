@@ -6,6 +6,7 @@ import type {
   CoordinationEvent,
   CoordinationSession,
   CoordinationTask,
+  SystemInfo,
 } from "../../types";
 
 const activeStatuses = new Set([
@@ -26,9 +27,13 @@ const shortId = (value: string) => value.slice(0, 8);
 
 interface CoordinationWorkspaceProps {
   agents: Agent[];
+  executorMode: SystemInfo["coordinationExecutor"];
 }
 
-export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
+export function CoordinationWorkspace({
+  agents,
+  executorMode,
+}: CoordinationWorkspaceProps) {
   const [sessions, setSessions] = useState<CoordinationSession[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [session, setSession] = useState<CoordinationSession | null>(null);
@@ -45,6 +50,7 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
     () => new Map(agents.map((agent) => [agent.id, agent.name])),
     [agents],
   );
+  const usesRealAgents = executorMode === "agent";
 
   const refreshSessions = useCallback(async () => {
     const result = await api.coordinationSessions();
@@ -173,14 +179,17 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
     <section className="coordination-workspace">
       <header className="coordination-heading">
         <div>
-          <span className="eyebrow">MOSAIC coordination foundation</span>
+          <span className="eyebrow">MOSAIC coordination</span>
           <h1>Task graph and execution evidence</h1>
           <p>
-            This shared milestone uses a clearly labelled deterministic Fake Executor.
-            Existing Playground Agents remain real and unchanged.
+            {usesRealAgents
+              ? "Tasks execute through the existing AgentService Run path with strict WorkerOutput validation."
+              : "This safe default uses a deterministic Fake Executor. Existing Playground Agents remain real and unchanged."}
           </p>
         </div>
-        <span className="foundation-badge">Foundation · Fake Executor</span>
+        <span className="foundation-badge">
+          {usesRealAgents ? "MOSAIC · Agent Executor" : "Foundation · Fake Executor"}
+        </span>
       </header>
 
       {error && (
@@ -209,7 +218,11 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
             <fieldset className="participant-picker">
               <legend>Participant Agents</legend>
               {agents.length === 0 ? (
-                <p>No Agents selected. The Fake Executor can still prove the flow.</p>
+                <p>
+                  {usesRealAgents
+                    ? "Create at least one ready Agent before using the real executor."
+                    : "No Agents selected. The Fake Executor can still prove the flow."}
+                </p>
               ) : (
                 agents.map((agent) => (
                   <label key={agent.id}>
@@ -226,7 +239,11 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
             </fieldset>
             <button
               className="button button-primary coordination-create"
-              disabled={busy || !userTask.trim()}
+              disabled={
+                busy ||
+                !userTask.trim() ||
+                (usesRealAgents && participantIds.length === 0)
+              }
             >
               Create foundation Session
             </button>
@@ -276,7 +293,10 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
                     <button
                       className="button button-primary"
                       onClick={startSession}
-                      disabled={busy}
+                      disabled={
+                        busy ||
+                        (usesRealAgents && session.participantAgentIds.length === 0)
+                      }
                     >
                       Start Session
                     </button>
@@ -314,7 +334,9 @@ export function CoordinationWorkspace({ agents }: CoordinationWorkspaceProps) {
                         <small>
                           {task.assignedAgentId
                             ? agentNames.get(task.assignedAgentId) ?? shortId(task.assignedAgentId)
-                            : "Fake Executor"}
+                            : usesRealAgents
+                              ? "Awaiting Agent"
+                              : "Fake Executor"}
                         </small>
                       </article>
                       {index < tasks.length - 1 && (

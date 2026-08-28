@@ -9,6 +9,7 @@ import { CoordinationService } from "./multi-agent/coordination-service.js";
 import { CoordinationStore } from "./multi-agent/coordination-store.js";
 import { JsonCoordinationEventSink } from "./multi-agent/event-store.js";
 import { FakeCoordinationExecutor } from "./multi-agent/fake-executor.js";
+import { AgentServiceCoordinationExecutor } from "./multi-agent/agent-executor-adapter.js";
 
 const config = loadConfig();
 await writeCodexConfig(config);
@@ -20,9 +21,13 @@ const service = new AgentService(config, store, workspaces, runner);
 await service.initialize();
 
 const coordinationStore = new CoordinationStore(store);
+const coordinationExecutor =
+  config.coordinationExecutor === "agent"
+    ? new AgentServiceCoordinationExecutor(service)
+    : new FakeCoordinationExecutor();
 const coordinationService = new CoordinationService(
   coordinationStore,
-  new FakeCoordinationExecutor(),
+  coordinationExecutor,
   new JsonCoordinationEventSink(coordinationStore),
 );
 await coordinationService.initialize();

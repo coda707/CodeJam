@@ -324,6 +324,12 @@ export class CoordinationService {
     result: TaskExecutionResult,
   ): Promise<void> {
     const completedAt = this.clock.now();
+    const correlation = {
+      taskId: task.id,
+      attemptId: attempt.id,
+      ...(attempt.agentId ? { agentId: attempt.agentId } : {}),
+      ...(result.runId ? { runId: result.runId } : {}),
+    };
     if (result.status === "succeeded") {
       await this.store.updateAttempt(attempt.id, (stored) => {
         stored.status = "succeeded";
@@ -338,13 +344,13 @@ export class CoordinationService {
         sessionId,
         "attempt.succeeded",
         { summary: result.output.summary },
-        { taskId: task.id, attemptId: attempt.id },
+        correlation,
       );
       await this.emit(
         sessionId,
         "task.succeeded",
         { title: task.title },
-        { taskId: task.id, attemptId: attempt.id },
+        correlation,
       );
       return;
     }
@@ -364,13 +370,13 @@ export class CoordinationService {
       sessionId,
       "attempt.failed",
       { error: result.error, failureClass: result.failureClass },
-      { taskId: task.id, attemptId: attempt.id },
+      correlation,
     );
     await this.emit(
       sessionId,
       "task.failed",
       { title: task.title },
-      { taskId: task.id, attemptId: attempt.id },
+      correlation,
     );
   }
 

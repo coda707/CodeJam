@@ -45,6 +45,7 @@ export interface SystemInfo {
   codexAvailable: boolean;
   codexSandboxMode: string;
   runtimeProvider: "local-process" | "container";
+  coordinationExecutor: "fake" | "agent";
   containerEngine: string | null;
   runtime: string;
 }

@@ -1,4 +1,5 @@
 import { mkdtemp, rm } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -115,6 +116,43 @@ describe("foundation coordination flow", () => {
       errorClass: "test_failure",
     });
     expect(service.getEvents(session.id).at(-1)?.type).toBe("session.failed");
+  });
+
+  it("persists Agent Run correlation on Attempts and terminal events", async () => {
+    const agentId = randomUUID();
+    const runId = randomUUID();
+    const service = await makeService({
+      execute: async () => ({
+        status: "succeeded",
+        runId,
+        output: {
+          summary: "real worker result",
+          artifactPaths: [],
+          evidence: ["run completed"],
+          unresolvedIssues: [],
+        },
+      }),
+      cancel: async () => false,
+    });
+    const { session } = await service.createSession({
+      userTask: "Correlate the real Agent Run",
+      participantAgentIds: [agentId],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getAttempts(session.id)).toHaveLength(2);
+    expect(service.getAttempts(session.id).every((attempt) => attempt.runId === runId)).toBe(
+      true,
+    );
+    const succeeded = service
+      .getEvents(session.id)
+      .filter((event) => event.type === "attempt.succeeded");
+    expect(succeeded).toHaveLength(2);
+    expect(succeeded.every((event) => event.agentId === agentId && event.runId === runId)).toBe(
+      true,
+    );
   });
 
   it("cancels active foundation work and leaves a terminal Session", async () => {

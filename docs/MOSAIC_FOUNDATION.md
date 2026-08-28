@@ -17,13 +17,15 @@ React MOSAIC workspace
   -> validated fixed PlannerOutput
   -> dependency-aware scheduler
   -> CoordinationExecutor port
-  -> deterministic FakeCoordinationExecutor
+  -> deterministic FakeCoordinationExecutor (default) or AgentService adapter
   -> JsonStore-backed Session / Task / Attempt / Event records
 ```
 
-The Fake Executor is deliberately and visibly labelled in the UI. It does not
-call Ark, Codex, or `AgentService`. Existing Agent CRUD, lifecycle, Playground,
-Codex sessions, and workspace behavior remain real and unchanged.
+The Fake Executor remains the safe default and is deliberately labelled in the
+UI. Set `COORDINATION_EXECUTOR=agent` to use participant Agents through the
+existing `AgentService` Run path. The UI reports the active mode, and real Run
+IDs are correlated with Task Attempts and terminal Events. Existing Agent CRUD,
+lifecycle, Playground, Codex sessions, and workspace behavior remain unchanged.
 
 ## Run the foundation
 
@@ -38,8 +40,17 @@ existing Agents as participants, then select **Start Session**. The two task
 nodes should complete in dependency order and the timeline should end with
 `session.completed`.
 
-The participant selection is metadata in this milestone. It becomes an actual
-Agent assignment when Developer B connects the executor port.
+To exercise real Agent execution, create at least one ready Agent and start with:
+
+```bash
+COORDINATION_EXECUTOR=agent \
+ARK_API_KEY=your-ark-api-key \
+ARK_MODEL=ep-your-endpoint-id \
+npm run poc
+```
+
+Real workers must return the strict `WorkerOutput` JSON requested by the
+adapter. Malformed output fails the Attempt rather than unlocking dependencies.
 
 ## Stable shared contracts
 
@@ -125,20 +136,20 @@ Next responsibilities:
 
 ## Developer B - Execution and reliability
 
-Implement the existing `CoordinationExecutor` port in:
+The initial `CoordinationExecutor` implementation now lives in:
 
 ```text
 apps/server/src/multi-agent/agent-executor-adapter.ts
 ```
 
-The adapter should:
+It already launches through `AgentService`, waits for completion, propagates
+cancellation, validates `WorkerOutput`, and persists Run correlation. Extend it
+to:
 
-1. launch work through the existing `AgentService` Run path;
-2. correlate Session, Task, Attempt, Agent, and Run IDs;
-3. return a schema-validated `WorkerOutput`;
-4. propagate cancellation to the underlying Run;
-5. add Artifact storage, mechanical verification, failure classification, and
-   bounded recovery behind the existing ports.
+1. add Artifact storage and safe dependency handoff;
+2. add mechanical verification and richer failure classification;
+3. implement timeout policy and bounded recovery;
+4. cover multi-Agent workspace promotion/integration.
 
 Replace `FakeCoordinationExecutor` only in application composition
 (`apps/server/src/index.ts`). Do not make the coordinator call Ark, Codex CLI, or
@@ -186,8 +197,9 @@ The foundation test suite covers:
 ## Intentional limitations
 
 - The planner and graph are fixed and deterministic.
-- Task execution is fake and produces no Artifact file.
-- Participant Agents are recorded but not invoked.
+- Fake remains the default mode and produces no Artifact file.
+- Agent mode invokes real participants, but Artifact promotion and verification
+  are not connected yet.
 - There is no Collaboration Gate, dynamic selection, mechanical verifier,
   retry/reassignment, metrics projection, or durable resume yet.
 - Coordination is single-process and uses the existing JSON Store.

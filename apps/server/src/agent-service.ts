@@ -150,6 +150,20 @@ export class AgentService {
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
+  async waitForRun(runId: string): Promise<AgentRun> {
+    const current = this.getRun(runId);
+    if (!["queued", "running"].includes(current.status)) return current;
+    const execution = this.activeExecutions.get(current.agentId);
+    if (execution) await execution;
+    return this.getRun(runId);
+  }
+
+  async cancelRun(runId: string): Promise<boolean> {
+    const current = this.getRun(runId);
+    if (!["queued", "running"].includes(current.status)) return false;
+    return this.cancelExecution(current.agentId);
+  }
+
   async sendMessage(
     agentId: string,
     prompt: string,
@@ -221,6 +235,7 @@ export class AgentService {
       codexAvailable: await this.runner.isAvailable(),
       codexSandboxMode: this.config.codexSandboxMode,
       runtimeProvider: this.config.runtimeProvider,
+      coordinationExecutor: this.config.coordinationExecutor,
       containerEngine:
         this.config.runtimeProvider === "container"
           ? this.config.containerEngine
@@ -311,14 +326,15 @@ export class AgentService {
     });
   }
 
-  private async cancelExecution(agentId: string): Promise<void> {
+  private async cancelExecution(agentId: string): Promise<boolean> {
     this.cancellationRequests.add(agentId);
     try {
-      await this.runner.cancel(agentId);
+      const runnerCancelled = await this.runner.cancel(agentId);
       const execution = this.activeExecutions.get(agentId);
       if (execution) {
         await execution;
       }
+      return runnerCancelled || Boolean(execution);
     } finally {
       this.cancellationRequests.delete(agentId);
     }
