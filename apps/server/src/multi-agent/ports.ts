@@ -2,6 +2,7 @@ import type {
   CoordinationArtifact,
   CoordinationEvent,
   CoordinationSession,
+  CoordinationRunUsage,
   FailureClass,
   TaskAttempt,
   TaskNode,
@@ -19,12 +20,14 @@ export type TaskExecutionResult =
       status: "succeeded";
       output: WorkerOutput;
       runId?: string;
+      usage?: CoordinationRunUsage;
     }
   | {
       status: "failed";
       failureClass: FailureClass;
       error: string;
       runId?: string;
+      usage?: CoordinationRunUsage;
     };
 
 /** Developer B implements this port with the existing AgentService Run path. */

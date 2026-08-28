@@ -1,10 +1,12 @@
 import type {
   Agent,
   AgentRun,
+  CoordinationArtifact,
   CoordinationAttempt,
   CoordinationEvent,
   CoordinationSession,
   CoordinationTask,
+  CoordinationMetrics,
   Message,
   SystemInfo,
 } from "./types";
@@ -120,5 +122,13 @@ export const api = {
   coordinationEvents: (id: string) =>
     request<{ events: CoordinationEvent[] }>(
       `/api/coordination/sessions/${id}/events`,
+    ),
+  coordinationArtifacts: (id: string) =>
+    request<{ artifacts: CoordinationArtifact[] }>(
+      `/api/coordination/sessions/${id}/artifacts`,
+    ),
+  coordinationMetrics: (id: string) =>
+    request<{ metrics: CoordinationMetrics }>(
+      `/api/coordination/sessions/${id}/metrics`,
     ),
 };

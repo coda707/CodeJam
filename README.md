@@ -239,6 +239,10 @@ terraform fmt -check -recursive deploy/volcengine
 docker compose config
 ```
 
+With the application running, verify the MOSAIC browser/API path with
+`npm run verify:mosaic`. Agent executor mode also requires
+`MOSAIC_AGENT_IDS=id1,id2`.
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)

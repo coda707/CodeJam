@@ -88,9 +88,15 @@ export class AgentServiceCoordinationExecutor implements CoordinationExecutor {
             failureClass: "malformed_output",
             error: "Agent Run completed with malformed WorkerOutput",
             runId,
+            ...(completed.usage ? { usage: completed.usage } : {}),
           };
         }
-        return { status: "succeeded", output, runId };
+        return {
+          status: "succeeded",
+          output,
+          runId,
+          ...(completed.usage ? { usage: completed.usage } : {}),
+        };
       }
 
       const error = completed.error ?? `Agent Run ended with status ${completed.status}`;
@@ -99,6 +105,7 @@ export class AgentServiceCoordinationExecutor implements CoordinationExecutor {
         failureClass: classifyExecutionFailure(error),
         error: truncate(error, 2_000),
         runId,
+        ...(completed.usage ? { usage: completed.usage } : {}),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

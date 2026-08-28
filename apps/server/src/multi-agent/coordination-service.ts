@@ -24,6 +24,7 @@ import { createFoundationPlan } from "./planner.js";
 import type { CoordinationStore } from "./coordination-store.js";
 import { NoopCoordinationArtifactRepository } from "./artifact-store.js";
 import { MechanicalCoordinationVerifier } from "./verifier.js";
+import { projectCoordinationMetrics } from "./metrics.js";
 
 const systemClock: CoordinationClock = { now: () => new Date().toISOString() };
 const uuidGenerator: CoordinationIdGenerator = { next: () => randomUUID() };
@@ -98,6 +99,18 @@ export class CoordinationService {
 
   getArtifacts(sessionId: string) {
     return this.store.getArtifacts(sessionId);
+  }
+
+  getMetrics(sessionId: string) {
+    const session = this.store.getSession(sessionId);
+    return projectCoordinationMetrics(
+      session,
+      this.store.getTasks(sessionId),
+      this.store.getAttempts(sessionId),
+      this.store.getArtifacts(sessionId),
+      this.store.getEvents(sessionId),
+      this.clock.now(),
+    );
   }
 
   async createSession(
@@ -367,6 +380,7 @@ export class CoordinationService {
       });
       await this.store.updateAttempt(attempt.id, (stored) => {
         if (result.runId) stored.runId = result.runId;
+        if (result.usage) stored.usage = result.usage;
       });
       await this.store.updateSession(session.id, (stored) => {
         if (stored.status === "executing") stored.status = "verifying";
@@ -505,6 +519,7 @@ export class CoordinationService {
         stored.status = "succeeded";
         stored.completedAt = completedAt;
         if (result.runId) stored.runId = result.runId;
+        if (result.usage) stored.usage = result.usage;
       });
       await this.store.updateTask(task.id, (stored) => {
         stored.status = "succeeded";
@@ -531,6 +546,7 @@ export class CoordinationService {
       stored.errorClass = result.failureClass;
       stored.errorMessage = result.error;
       if (result.runId) stored.runId = result.runId;
+      if (result.usage) stored.usage = result.usage;
     });
     await this.store.updateTask(task.id, (stored) => {
       stored.status = "failed";

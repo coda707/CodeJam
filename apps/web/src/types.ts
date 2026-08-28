@@ -119,12 +119,51 @@ export interface CoordinationAttempt {
   taskId: string;
   agentId?: string;
   runId?: string;
+  retryOfAttemptId?: string;
   status: "created" | "running" | "succeeded" | "failed" | "timed_out" | "cancelled" | "reassigned";
   createdAt: string;
   startedAt?: string;
   completedAt?: string;
   errorClass?: string;
   errorMessage?: string;
+  usage?: {
+    inputTokens?: number;
+    cachedInputTokens?: number;
+    outputTokens?: number;
+  };
+}
+
+export interface CoordinationArtifact {
+  id: string;
+  sessionId: string;
+  taskId: string;
+  producerAgentId?: string;
+  attemptId?: string;
+  type: "plan" | "report" | "patch" | "commit" | "test_report" | "review" | "failure_report" | "final_result";
+  schemaVersion: number;
+  sourcePath?: string;
+  path?: string;
+  contentHash: string;
+  verificationStatus: "unverified" | "accepted" | "rejected";
+  createdAt: string;
+}
+
+export interface CoordinationMetrics {
+  sessionId: string;
+  totalTasks: number;
+  totalAttempts: number;
+  totalAgentCalls: number;
+  failedAttempts: number;
+  retryAttempts: number;
+  recoveredTasks: number;
+  inputTokens: number;
+  cachedInputTokens: number;
+  outputTokens: number;
+  totalArtifacts: number;
+  acceptedArtifacts: number;
+  totalEvents: number;
+  durationMs: number;
+  recoveryStatus: "not_needed" | "not_attempted" | "in_progress" | "succeeded" | "failed";
 }
 
 export interface CoordinationEvent {

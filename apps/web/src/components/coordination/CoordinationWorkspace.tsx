@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api";
 import type {
   Agent,
+  CoordinationArtifact,
   CoordinationAttempt,
   CoordinationEvent,
   CoordinationSession,
   CoordinationTask,
+  CoordinationMetrics,
   SystemInfo,
 } from "../../types";
 
@@ -24,6 +26,9 @@ const formatTime = (value: string) =>
   }).format(new Date(value));
 
 const shortId = (value: string) => value.slice(0, 8);
+const formatNumber = (value: number) => new Intl.NumberFormat().format(value);
+const formatDuration = (value: number) =>
+  value < 1_000 ? `${value} ms` : `${(value / 1_000).toFixed(1)} s`;
 
 interface CoordinationWorkspaceProps {
   agents: Agent[];
@@ -39,6 +44,8 @@ export function CoordinationWorkspace({
   const [session, setSession] = useState<CoordinationSession | null>(null);
   const [tasks, setTasks] = useState<CoordinationTask[]>([]);
   const [attempts, setAttempts] = useState<CoordinationAttempt[]>([]);
+  const [artifacts, setArtifacts] = useState<CoordinationArtifact[]>([]);
+  const [metrics, setMetrics] = useState<CoordinationMetrics | null>(null);
   const [events, setEvents] = useState<CoordinationEvent[]>([]);
   const [userTask, setUserTask] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
@@ -63,16 +70,27 @@ export function CoordinationWorkspace({
   }, []);
 
   const refreshDetails = useCallback(async (id: string) => {
-    const [sessionResult, taskResult, attemptResult, eventResult] = await Promise.all([
+    const [
+      sessionResult,
+      taskResult,
+      attemptResult,
+      eventResult,
+      artifactResult,
+      metricResult,
+    ] = await Promise.all([
       api.coordinationSession(id),
       api.coordinationTasks(id),
       api.coordinationAttempts(id),
       api.coordinationEvents(id),
+      api.coordinationArtifacts(id),
+      api.coordinationMetrics(id),
     ]);
     setSession(sessionResult.session);
     setTasks(taskResult.tasks);
     setAttempts(attemptResult.attempts);
     setEvents(eventResult.events);
+    setArtifacts(artifactResult.artifacts);
+    setMetrics(metricResult.metrics);
     setSessions((current) =>
       current.map((item) =>
         item.id === sessionResult.session.id ? sessionResult.session : item,
@@ -100,6 +118,8 @@ export function CoordinationWorkspace({
       setTasks([]);
       setAttempts([]);
       setEvents([]);
+      setArtifacts([]);
+      setMetrics(null);
       return;
     }
     setLoading(true);
@@ -313,6 +333,44 @@ export function CoordinationWorkspace({
                 </div>
               </article>
 
+              {metrics && (
+                <article className="coordination-panel metrics-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <span className="eyebrow">Session Metrics</span>
+                      <h2>Authoritative evidence projection</h2>
+                    </div>
+                    <span>Recovery: {metrics.recoveryStatus}</span>
+                  </div>
+                  <div className="metrics-grid">
+                    <div>
+                      <strong>{metrics.totalAgentCalls}</strong>
+                      <span>Agent calls</span>
+                    </div>
+                    <div>
+                      <strong>{metrics.totalAttempts}</strong>
+                      <span>Attempts</span>
+                    </div>
+                    <div>
+                      <strong>{metrics.failedAttempts}</strong>
+                      <span>Failed</span>
+                    </div>
+                    <div>
+                      <strong>{metrics.acceptedArtifacts}</strong>
+                      <span>Verified artifacts</span>
+                    </div>
+                    <div>
+                      <strong>{formatNumber(metrics.inputTokens + metrics.outputTokens)}</strong>
+                      <span>Model tokens</span>
+                    </div>
+                    <div>
+                      <strong>{formatDuration(metrics.durationMs)}</strong>
+                      <span>Duration</span>
+                    </div>
+                  </div>
+                </article>
+              )}
+
               <article className="coordination-panel graph-panel">
                 <div className="panel-heading">
                   <div>
@@ -346,6 +404,79 @@ export function CoordinationWorkspace({
                       )}
                     </div>
                   ))}
+                </div>
+              </article>
+
+              <article className="coordination-panel evidence-panel">
+                <div className="panel-heading">
+                  <div>
+                    <span className="eyebrow">Execution Evidence</span>
+                    <h2>Attempts, Runs and verified Artifacts</h2>
+                  </div>
+                  <span>{attempts.length} attempts · {artifacts.length} artifacts</span>
+                </div>
+                <div className="evidence-grid">
+                  <section>
+                    <h3>Attempts</h3>
+                    <div className="evidence-list">
+                      {attempts.map((attempt) => {
+                        const task = tasks.find((item) => item.id === attempt.taskId);
+                        const tokens =
+                          (attempt.usage?.inputTokens ?? 0) +
+                          (attempt.usage?.outputTokens ?? 0);
+                        return (
+                          <article key={attempt.id}>
+                            <div>
+                              <strong>{task?.title ?? `Task ${shortId(attempt.taskId)}`}</strong>
+                              <span className={`evidence-status evidence-${attempt.status}`}>
+                                {attempt.status}
+                              </span>
+                            </div>
+                            <p>
+                              {attempt.agentId
+                                ? agentNames.get(attempt.agentId) ?? shortId(attempt.agentId)
+                                : executorMode === "fake"
+                                  ? "Fake Executor"
+                                  : "Unassigned"}
+                              {attempt.runId ? ` · Run ${shortId(attempt.runId)}` : ""}
+                              {tokens > 0 ? ` · ${formatNumber(tokens)} tokens` : ""}
+                            </p>
+                            {attempt.retryOfAttemptId && (
+                              <small>Retry of {shortId(attempt.retryOfAttemptId)}</small>
+                            )}
+                            {attempt.errorMessage && <small>{attempt.errorMessage}</small>}
+                          </article>
+                        );
+                      })}
+                      {attempts.length === 0 && <p>No Attempts recorded yet.</p>}
+                    </div>
+                  </section>
+                  <section>
+                    <h3>Artifacts</h3>
+                    <div className="evidence-list">
+                      {artifacts.map((artifact) => (
+                        <article key={artifact.id}>
+                          <div>
+                            <strong>{artifact.sourcePath ?? artifact.type}</strong>
+                            <span
+                              className={`evidence-status evidence-${artifact.verificationStatus}`}
+                            >
+                              {artifact.verificationStatus}
+                            </span>
+                          </div>
+                          <p>
+                            {artifact.type} · sha256:{artifact.contentHash.slice(0, 12)}…
+                          </p>
+                          <small>
+                            Attempt {artifact.attemptId ? shortId(artifact.attemptId) : "unknown"}
+                          </small>
+                        </article>
+                      ))}
+                      {artifacts.length === 0 && (
+                        <p>No file Artifacts reported by this Session.</p>
+                      )}
+                    </div>
+                  </section>
                 </div>
               </article>
 

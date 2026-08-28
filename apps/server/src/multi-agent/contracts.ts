@@ -158,6 +158,13 @@ export const taskAttemptSchema = z.strictObject({
   completedAt: timestamp.optional(),
   errorClass: failureClassSchema.optional(),
   errorMessage: z.string().max(2_000).optional(),
+  usage: z
+    .strictObject({
+      inputTokens: z.number().int().min(0).optional(),
+      cachedInputTokens: z.number().int().min(0).optional(),
+      outputTokens: z.number().int().min(0).optional(),
+    })
+    .optional(),
   createdAt: timestamp,
 });
 
@@ -229,6 +236,30 @@ export const coordinationEventSchema = z.strictObject({
   createdAt: timestamp,
 });
 
+export const coordinationMetricsSchema = z.strictObject({
+  sessionId: boundedId,
+  totalTasks: z.number().int().min(0),
+  totalAttempts: z.number().int().min(0),
+  totalAgentCalls: z.number().int().min(0),
+  failedAttempts: z.number().int().min(0),
+  retryAttempts: z.number().int().min(0),
+  recoveredTasks: z.number().int().min(0),
+  inputTokens: z.number().int().min(0),
+  cachedInputTokens: z.number().int().min(0),
+  outputTokens: z.number().int().min(0),
+  totalArtifacts: z.number().int().min(0),
+  acceptedArtifacts: z.number().int().min(0),
+  totalEvents: z.number().int().min(0),
+  durationMs: z.number().int().min(0),
+  recoveryStatus: z.enum([
+    "not_needed",
+    "not_attempted",
+    "in_progress",
+    "succeeded",
+    "failed",
+  ]),
+});
+
 export const createCoordinationSessionInputSchema = z.strictObject({
   userTask: boundedText(50_000),
   participantAgentIds: z.array(boundedId).max(32).default([]),
@@ -279,6 +310,8 @@ export type TaskAttempt = z.infer<typeof taskAttemptSchema>;
 export type CoordinationArtifact = z.infer<typeof coordinationArtifactSchema>;
 export type CoordinationEventType = z.infer<typeof coordinationEventTypeSchema>;
 export type CoordinationEvent = z.infer<typeof coordinationEventSchema>;
+export type CoordinationRunUsage = NonNullable<TaskAttempt["usage"]>;
+export type CoordinationMetrics = z.infer<typeof coordinationMetricsSchema>;
 export type CreateCoordinationSessionInput = z.infer<
   typeof createCoordinationSessionInputSchema
 >;

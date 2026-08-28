@@ -104,6 +104,7 @@ describe("AgentServiceCoordinationExecutor", () => {
     expect(result).toMatchObject({
       status: "succeeded",
       runId: run.id,
+      usage: { inputTokens: 10, outputTokens: 5 },
       output: { artifactPaths: ["src/feature.ts"] },
     });
     expect(receivedPrompt).toBe(buildWorkerPrompt(request));

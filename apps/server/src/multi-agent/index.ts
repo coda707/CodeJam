@@ -6,6 +6,7 @@ export * from "./coordination-store.js";
 export * from "./event-store.js";
 export * from "./fake-executor.js";
 export * from "./failure-classifier.js";
+export * from "./metrics.js";
 export * from "./planner.js";
 export * from "./ports.js";
 export * from "./verifier.js";

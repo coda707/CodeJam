@@ -57,7 +57,7 @@ describe("coordination HTTP boundary", () => {
     expect(started.statusCode).toBe(202);
     await coordination.waitForIdle(sessionId);
 
-    const [session, tasks, events] = await Promise.all([
+    const [session, tasks, events, artifacts, metrics] = await Promise.all([
       app.inject({ method: "GET", url: `/api/coordination/sessions/${sessionId}` }),
       app.inject({
         method: "GET",
@@ -67,10 +67,27 @@ describe("coordination HTTP boundary", () => {
         method: "GET",
         url: `/api/coordination/sessions/${sessionId}/events`,
       }),
+      app.inject({
+        method: "GET",
+        url: `/api/coordination/sessions/${sessionId}/artifacts`,
+      }),
+      app.inject({
+        method: "GET",
+        url: `/api/coordination/sessions/${sessionId}/metrics`,
+      }),
     ]);
     expect(session.json().session.status).toBe("completed");
     expect(tasks.json().tasks).toHaveLength(2);
     expect(events.json().events.at(-1).type).toBe("session.completed");
+    expect(artifacts.json().artifacts).toEqual([]);
+    expect(metrics.json().metrics).toMatchObject({
+      sessionId,
+      totalTasks: 2,
+      totalAttempts: 2,
+      totalAgentCalls: 0,
+      failedAttempts: 0,
+      recoveryStatus: "not_needed",
+    });
     await app.close();
   });
 });

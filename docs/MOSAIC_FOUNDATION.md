@@ -113,6 +113,7 @@ GET  /api/coordination/sessions/:id/tasks
 GET  /api/coordination/sessions/:id/attempts
 GET  /api/coordination/sessions/:id/events
 GET  /api/coordination/sessions/:id/artifacts
+GET  /api/coordination/sessions/:id/metrics
 ```
 
 All routes inherit the existing `/api/` bearer-token boundary. Polling is the
@@ -158,9 +159,9 @@ to:
 3. implement timeout policy and bounded recovery;
 4. cover verified workspace promotion/integration.
 
-Replace `FakeCoordinationExecutor` only in application composition
-(`apps/server/src/index.ts`). Do not make the coordinator call Ark, Codex CLI, or
-an `AgentRunner` directly.
+Select the implementation through `COORDINATION_EXECUTOR`; composition remains
+in `apps/server/src/index.ts`. Do not make the coordinator call Ark, Codex CLI,
+or an `AgentRunner` directly.
 
 ## Developer C - Evidence plane and product
 
@@ -173,14 +174,14 @@ apps/web/src/api.ts
 apps/web/src/types.ts
 ```
 
-Next responsibilities:
+The workspace now renders authoritative metrics plus Attempt/Run and Artifact
+evidence from these APIs. Next responsibilities:
 
-1. evolve the bounded Event sink and add metrics projections;
-2. add artifact, verification, recovery, and Attempt-linkage views;
-3. show authoritative backend state rather than inferring state in React;
-4. add the evaluation harness and clearly labelled deterministic demo fixtures;
-5. remove the Fake Executor label only after the UI is backed by real
-   `AgentService` Runs.
+1. evolve the bounded Event sink for richer recovery and integration evidence;
+2. add Artifact download/preview and deeper retry/reassignment comparison;
+3. extend the evaluation harness with single/static/MOSAIC comparison fixtures;
+4. add recorded-demo polish and accessibility checks;
+5. keep the Fake Executor label whenever that runtime mode is active.
 
 ## Tests and acceptance
 
@@ -189,6 +190,16 @@ Run before every integration milestone:
 ```bash
 npm run check
 ```
+
+With a server already running, execute the browser-API acceptance path with:
+
+```bash
+npm run verify:mosaic
+```
+
+For Agent mode, supply comma-separated real participants through
+`MOSAIC_AGENT_IDS`. `MOSAIC_BASE_URL`, `APP_AUTH_TOKEN`, and
+`MOSAIC_VERIFY_TIMEOUT_MS` configure remote or protected demos.
 
 The foundation test suite covers:
 
@@ -199,6 +210,8 @@ The foundation test suite covers:
 - success, failure, cancellation, and server-restart cleanup;
 - legacy JSON database compatibility;
 - browser-facing create/start/query API behavior;
+- Artifact path safety, hashing, capture limits, and mechanical verification;
+- usage/recovery Metrics projection and evidence API consistency;
 - all original Agent lifecycle, Runner, HTTP, and Store regressions.
 
 ## Intentional limitations
@@ -207,8 +220,8 @@ The foundation test suite covers:
 - Fake remains the default mode and produces no Artifact file.
 - Agent mode invokes real participants and captures files, but cross-workspace
   Artifact promotion and command/test verification are not connected yet.
-- There is no Collaboration Gate, dynamic selection, mechanical verifier,
-  retry/reassignment, metrics projection, or durable resume yet.
+- There is no Collaboration Gate, dynamic selection, retry/reassignment, or
+  durable resume yet.
 - Coordination is single-process and uses the existing JSON Store.
 - The current graph visualization is optimized for the two-node foundation DAG.
 

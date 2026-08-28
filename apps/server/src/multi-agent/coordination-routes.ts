@@ -54,4 +54,9 @@ export function registerCoordinationRoutes(
     const { id } = sessionIdParams.parse(request.params);
     return { artifacts: service.getArtifacts(id) };
   });
+
+  app.get("/api/coordination/sessions/:id/metrics", async (request) => {
+    const { id } = sessionIdParams.parse(request.params);
+    return { metrics: service.getMetrics(id) };
+  });
 }
