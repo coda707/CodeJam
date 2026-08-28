@@ -1,7 +1,7 @@
 # MOSAIC Foundation Handoff
 
 This document describes the shared thin vertical skeleton that Developers A, B,
-and C build on. The project contract remains `document/track1_handouts/` and the
+and C build on. The project contract remains `docs/track1_handouts/` and the
 official Track 1 problem statement.
 
 ## What works now

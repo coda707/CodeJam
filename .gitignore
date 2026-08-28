@@ -17,5 +17,4 @@ deploy/volcengine/terraform.tfvars
 
 
 #codex files
-document
 tmp
