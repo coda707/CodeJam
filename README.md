@@ -205,6 +205,7 @@ cp deploy/volcengine/terraform.tfvars.example \
 | `APP_AUTH_TOKEN` | Empty on loopback | Shared demo token; use 24+ random characters remotely. |
 | `RUNTIME_PROVIDER` | `local-process` | `container` for disposable local Runtime containers. |
 | `COORDINATION_EXECUTOR` | `fake` | `agent` to execute MOSAIC Tasks through existing Agents. |
+| `COORDINATION_ARTIFACT_ROOT` | Below `APP_DATA_DIR` | Session-scoped captured Artifact files. |
 | `CODEX_SANDBOX_MODE` | `workspace-write` | Codex inner sandbox mode. |
 | `CODEX_TIMEOUT_MS` | `600000` | Maximum duration of one turn. |
 | `LOCAL_POC_DATA_ROOT` | Platform-specific | Local metadata, workspace, and session directory. |

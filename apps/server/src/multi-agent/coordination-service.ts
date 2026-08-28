@@ -12,30 +12,49 @@ import {
   type TaskNode,
 } from "./contracts.js";
 import type {
+  CoordinationArtifactRepository,
   CoordinationClock,
   CoordinationEventSink,
   CoordinationExecutor,
   CoordinationIdGenerator,
+  CoordinationVerifier,
   TaskExecutionResult,
 } from "./ports.js";
 import { createFoundationPlan } from "./planner.js";
 import type { CoordinationStore } from "./coordination-store.js";
+import { NoopCoordinationArtifactRepository } from "./artifact-store.js";
+import { MechanicalCoordinationVerifier } from "./verifier.js";
 
 const systemClock: CoordinationClock = { now: () => new Date().toISOString() };
 const uuidGenerator: CoordinationIdGenerator = { next: () => randomUUID() };
+
+export interface CoordinationServiceOptions {
+  clock?: CoordinationClock;
+  ids?: CoordinationIdGenerator;
+  artifacts?: CoordinationArtifactRepository;
+  verifier?: CoordinationVerifier;
+}
 
 export class CoordinationService {
   private readonly activeSessions = new Map<string, Promise<void>>();
   private readonly abortControllers = new Map<string, AbortController>();
   private readonly activeAttemptIds = new Map<string, string>();
+  private readonly clock: CoordinationClock;
+  private readonly ids: CoordinationIdGenerator;
+  private readonly artifacts: CoordinationArtifactRepository;
+  private readonly verifier: CoordinationVerifier;
 
   constructor(
     private readonly store: CoordinationStore,
     private readonly executor: CoordinationExecutor,
     private readonly events: CoordinationEventSink,
-    private readonly clock: CoordinationClock = systemClock,
-    private readonly ids: CoordinationIdGenerator = uuidGenerator,
-  ) {}
+    options: CoordinationServiceOptions = {},
+  ) {
+    this.clock = options.clock ?? systemClock;
+    this.ids = options.ids ?? uuidGenerator;
+    this.artifacts = options.artifacts ?? new NoopCoordinationArtifactRepository();
+    this.verifier = options.verifier ?? new MechanicalCoordinationVerifier();
+  }
 
   async initialize(): Promise<void> {
     const interrupted = this.store
@@ -310,11 +329,162 @@ export class CoordinationService {
         error: error instanceof Error ? error.message : String(error),
       };
     }
+    if (result.status === "succeeded") {
+      result = await this.captureAndVerify(
+        session,
+        runningTask,
+        runningAttempt,
+        result,
+      );
+    }
     if (signal.aborted || this.store.getSession(session.id).status === "cancelled") return;
     await this.finishAttempt(session.id, runningTask, runningAttempt, result);
     if (this.activeAttemptIds.get(session.id) === attempt.id) {
       this.activeAttemptIds.delete(session.id);
     }
+  }
+
+  private async captureAndVerify(
+    session: CoordinationSession,
+    task: TaskNode,
+    attempt: TaskAttempt,
+    result: Extract<TaskExecutionResult, { status: "succeeded" }>,
+  ): Promise<TaskExecutionResult> {
+    const correlation = {
+      taskId: task.id,
+      attemptId: attempt.id,
+      ...(attempt.agentId ? { agentId: attempt.agentId } : {}),
+      ...(result.runId ? { runId: result.runId } : {}),
+    };
+    try {
+      const verifyingAt = this.clock.now();
+      await this.store.updateTask(task.id, (stored) => {
+        if (stored.status !== "running") {
+          throw new HttpError(409, "Task is no longer running");
+        }
+        stored.status = "verifying";
+        stored.updatedAt = verifyingAt;
+      });
+      await this.store.updateAttempt(attempt.id, (stored) => {
+        if (result.runId) stored.runId = result.runId;
+      });
+      await this.store.updateSession(session.id, (stored) => {
+        if (stored.status === "executing") stored.status = "verifying";
+      });
+      await this.emit(session.id, "verification.started", {}, correlation);
+
+      const capture = await this.artifacts.capture(
+        { session, task, attempt },
+        result.output,
+      );
+      if (capture.status === "rejected") {
+        await this.restoreExecutingStatus(session.id);
+        await this.emit(
+          session.id,
+          "verification.failed",
+          { error: capture.error, failureClass: capture.failureClass },
+          correlation,
+        );
+        return {
+          status: "failed",
+          failureClass: capture.failureClass,
+          error: capture.error,
+          ...(result.runId ? { runId: result.runId } : {}),
+        };
+      }
+
+      for (const artifact of capture.artifacts) {
+        await this.emit(
+          session.id,
+          "artifact.created",
+          {
+            artifactId: artifact.id,
+            type: artifact.type,
+            sourcePath: artifact.sourcePath ?? null,
+            contentHash: artifact.contentHash,
+          },
+          correlation,
+        );
+      }
+      const verification = await this.verifier.verify({
+        session,
+        task,
+        attempt,
+        artifacts: capture.artifacts,
+        output: result.output,
+      });
+      const artifactIds = capture.artifacts.map((artifact) => artifact.id);
+      if (verification.status === "accepted") {
+        await this.store.setArtifactVerification(artifactIds, "accepted");
+        for (const artifact of capture.artifacts) {
+          await this.emit(
+            session.id,
+            "artifact.accepted",
+            { artifactId: artifact.id, contentHash: artifact.contentHash },
+            correlation,
+          );
+        }
+        await this.emit(
+          session.id,
+          "verification.passed",
+          { evidence: verification.evidence },
+          correlation,
+        );
+        await this.restoreExecutingStatus(session.id);
+        return result;
+      }
+
+      await this.store.setArtifactVerification(artifactIds, "rejected");
+      for (const artifact of capture.artifacts) {
+        await this.emit(
+          session.id,
+          "artifact.rejected",
+          { artifactId: artifact.id, contentHash: artifact.contentHash },
+          correlation,
+        );
+      }
+      const error = `Verification rejected: ${verification.evidence.join("; ")}`.slice(
+        0,
+        2_000,
+      );
+      await this.emit(
+        session.id,
+        "verification.failed",
+        { error, failureClass: verification.failureClass },
+        correlation,
+      );
+      await this.restoreExecutingStatus(session.id);
+      return {
+        status: "failed",
+        failureClass: verification.failureClass,
+        error,
+        ...(result.runId ? { runId: result.runId } : {}),
+      };
+    } catch (error) {
+      await this.restoreExecutingStatus(session.id);
+      const message = (error instanceof Error ? error.message : String(error)).slice(
+        0,
+        2_000,
+      );
+      await this.emit(
+        session.id,
+        "verification.failed",
+        { error: message, failureClass: "tool_error" },
+        correlation,
+      );
+      return {
+        status: "failed",
+        failureClass: "tool_error",
+        error: message,
+        ...(result.runId ? { runId: result.runId } : {}),
+      };
+    }
+  }
+
+  private async restoreExecutingStatus(sessionId: string): Promise<void> {
+    await this.store.updateSession(sessionId, (stored) => {
+      if (stored.status === "verifying") stored.status = "executing";
+    });
   }
 
   private async finishAttempt(

@@ -91,6 +91,12 @@ Legacy version 1 databases are normalized with empty coordination collections
 on load. Mutations continue to use the existing serialized `JsonStore` queue and
 atomic temporary-file rename.
 
+Real Worker files are captured below `COORDINATION_ARTIFACT_ROOT` (by default
+`APP_DATA_DIR/coordination-artifacts`). Capture rejects absolute/traversal paths,
+symlinks, non-files, missing files, files above 2 MiB, and Attempts above 8 MiB.
+Only Session-relative storage paths, source paths, SHA-256 hashes, and bounded
+metadata are persisted in JSON.
+
 An active foundation Session is marked `cancelled` on server restart, with its
 unfinished Tasks blocked and a persisted `session.cancelled` event. This avoids
 leaving false `running` state before durable resume is implemented.
@@ -143,13 +149,14 @@ apps/server/src/multi-agent/agent-executor-adapter.ts
 ```
 
 It already launches through `AgentService`, waits for completion, propagates
-cancellation, validates `WorkerOutput`, and persists Run correlation. Extend it
+cancellation, validates `WorkerOutput`, persists Run correlation, safely captures
+bounded Artifact files, and checks structured/file acceptance criteria. Extend it
 to:
 
-1. add Artifact storage and safe dependency handoff;
-2. add mechanical verification and richer failure classification;
+1. add safe dependency handoff between isolated Agent workspaces;
+2. add allowlisted command/test verification and richer failure classification;
 3. implement timeout policy and bounded recovery;
-4. cover multi-Agent workspace promotion/integration.
+4. cover verified workspace promotion/integration.
 
 Replace `FakeCoordinationExecutor` only in application composition
 (`apps/server/src/index.ts`). Do not make the coordinator call Ark, Codex CLI, or
@@ -198,8 +205,8 @@ The foundation test suite covers:
 
 - The planner and graph are fixed and deterministic.
 - Fake remains the default mode and produces no Artifact file.
-- Agent mode invokes real participants, but Artifact promotion and verification
-  are not connected yet.
+- Agent mode invokes real participants and captures files, but cross-workspace
+  Artifact promotion and command/test verification are not connected yet.
 - There is no Collaboration Gate, dynamic selection, mechanical verifier,
   retry/reassignment, metrics projection, or durable resume yet.
 - Coordination is single-process and uses the existing JSON Store.

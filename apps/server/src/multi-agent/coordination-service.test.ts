@@ -60,6 +60,7 @@ describe("foundation coordination flow", () => {
     expect(service.getAttempts(session.id)).toHaveLength(2);
     const events = service.getEvents(session.id);
     expect(events.filter((event) => event.type === "task.succeeded")).toHaveLength(2);
+    expect(events.filter((event) => event.type === "verification.passed")).toHaveLength(2);
     expect(events.at(-1)?.type).toBe("session.completed");
     const firstSucceeded = events.findIndex(
       (event) => event.type === "task.succeeded" && event.taskId === tasks[0]?.id,
@@ -116,6 +117,48 @@ describe("foundation coordination flow", () => {
       errorClass: "test_failure",
     });
     expect(service.getEvents(session.id).at(-1)?.type).toBe("session.failed");
+  });
+
+  it("does not unlock dependent work when mechanical verification rejects", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "coordination-verifier-test-"));
+    temporaryDirectories.push(root);
+    const jsonStore = new JsonStore(path.join(root, "database.json"));
+    await jsonStore.initialize();
+    const store = new CoordinationStore(jsonStore);
+    const service = new CoordinationService(
+      store,
+      new FakeCoordinationExecutor(0),
+      new JsonCoordinationEventSink(store),
+      {
+        verifier: {
+          verify: async () => ({
+            status: "rejected",
+            failureClass: "test_failure",
+            evidence: ["Expected report was missing"],
+          }),
+        },
+      },
+    );
+    const { session } = await service.createSession({
+      userTask: "Reject an unverified result",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getSession(session.id).status).toBe("failed");
+    expect(service.getTasks(session.id).map((task) => task.status)).toEqual([
+      "failed",
+      "blocked",
+    ]);
+    expect(service.getAttempts(session.id)[0]).toMatchObject({
+      status: "failed",
+      errorClass: "test_failure",
+    });
+    expect(
+      service.getEvents(session.id).some((event) => event.type === "verification.failed"),
+    ).toBe(true);
   });
 
   it("persists Agent Run correlation on Attempts and terminal events", async () => {

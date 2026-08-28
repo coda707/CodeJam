@@ -10,6 +10,8 @@ import { CoordinationStore } from "./multi-agent/coordination-store.js";
 import { JsonCoordinationEventSink } from "./multi-agent/event-store.js";
 import { FakeCoordinationExecutor } from "./multi-agent/fake-executor.js";
 import { AgentServiceCoordinationExecutor } from "./multi-agent/agent-executor-adapter.js";
+import { FileCoordinationArtifactStore } from "./multi-agent/artifact-store.js";
+import { MechanicalCoordinationVerifier } from "./multi-agent/verifier.js";
 
 const config = loadConfig();
 await writeCodexConfig(config);
@@ -29,6 +31,14 @@ const coordinationService = new CoordinationService(
   coordinationStore,
   coordinationExecutor,
   new JsonCoordinationEventSink(coordinationStore),
+  {
+    artifacts: new FileCoordinationArtifactStore(
+      config.coordinationArtifactRoot,
+      coordinationStore,
+      (agentId) => service.getAgent(agentId).workspacePath,
+    ),
+    verifier: new MechanicalCoordinationVerifier(),
+  },
 );
 await coordinationService.initialize();
 

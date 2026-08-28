@@ -169,6 +169,7 @@ export const coordinationArtifactSchema = z.strictObject({
   attemptId: boundedId.optional(),
   type: artifactTypeSchema,
   schemaVersion: z.number().int().min(1).max(100),
+  sourcePath: z.string().max(1_000).optional(),
   path: z.string().max(1_000).optional(),
   contentHash: z.string().regex(/^[a-f0-9]{64}$/),
   verificationStatus: verificationStatusSchema,

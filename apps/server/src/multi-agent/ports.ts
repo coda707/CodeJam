@@ -53,6 +53,18 @@ export interface CoordinationVerifier {
   verify(request: VerificationRequest): Promise<VerificationResult>;
 }
 
+export type ArtifactCaptureResult =
+  | { status: "captured"; artifacts: CoordinationArtifact[] }
+  | { status: "rejected"; failureClass: FailureClass; error: string };
+
+/** Developer B owns safe file capture and bounded Artifact persistence here. */
+export interface CoordinationArtifactRepository {
+  capture(
+    request: TaskExecutionRequest,
+    output: WorkerOutput,
+  ): Promise<ArtifactCaptureResult>;
+}
+
 /** Developer C owns the bounded event store behind this event sink. */
 export interface CoordinationEventSink {
   append(event: CoordinationEvent): Promise<void>;

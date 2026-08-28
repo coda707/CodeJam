@@ -147,6 +147,50 @@ export class CoordinationStore {
     });
   }
 
+  async createArtifacts(artifacts: CoordinationArtifact[]): Promise<void> {
+    if (artifacts.length === 0) return;
+    await this.store.mutate((database) => {
+      const existingIds = new Set(
+        database.coordinationArtifacts.map((artifact) => artifact.id),
+      );
+      for (const artifact of artifacts) {
+        if (existingIds.has(artifact.id)) {
+          throw new HttpError(409, "Coordination Artifact already exists");
+        }
+        if (
+          !database.coordinationSessions.some(
+            (session) => session.id === artifact.sessionId,
+          ) ||
+          !database.coordinationTasks.some((task) => task.id === artifact.taskId)
+        ) {
+          throw new HttpError(409, "Artifact correlation target does not exist");
+        }
+        existingIds.add(artifact.id);
+      }
+      database.coordinationArtifacts.push(...artifacts);
+    });
+  }
+
+  async setArtifactVerification(
+    ids: string[],
+    status: CoordinationArtifact["verificationStatus"],
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    const selected = new Set(ids);
+    await this.store.mutate((database) => {
+      let updated = 0;
+      for (const artifact of database.coordinationArtifacts) {
+        if (selected.has(artifact.id)) {
+          artifact.verificationStatus = status;
+          updated += 1;
+        }
+      }
+      if (updated !== selected.size) {
+        throw new HttpError(404, "Coordination Artifact not found");
+      }
+    });
+  }
+
   async appendEvent(event: CoordinationEvent): Promise<void> {
     await this.store.mutate((database) => {
       const session = database.coordinationSessions.find(
