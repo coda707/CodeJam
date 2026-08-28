@@ -25,6 +25,7 @@ const coordinationService = new CoordinationService(
   new FakeCoordinationExecutor(),
   new JsonCoordinationEventSink(coordinationStore),
 );
+await coordinationService.initialize();
 
 const app = await createApp(config, service, coordinationService);
 

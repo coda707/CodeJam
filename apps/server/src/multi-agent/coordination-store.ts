@@ -191,4 +191,18 @@ export class CoordinationStore {
       }
     });
   }
+
+  async blockUnfinishedTasks(sessionId: string, updatedAt: string): Promise<void> {
+    await this.store.mutate((database) => {
+      for (const task of database.coordinationTasks) {
+        if (
+          task.sessionId === sessionId &&
+          ["pending", "ready", "leased", "running", "verifying"].includes(task.status)
+        ) {
+          task.status = "blocked";
+          task.updatedAt = updatedAt;
+        }
+      }
+    });
+  }
 }

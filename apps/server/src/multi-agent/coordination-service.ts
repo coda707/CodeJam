@@ -37,6 +37,26 @@ export class CoordinationService {
     private readonly ids: CoordinationIdGenerator = uuidGenerator,
   ) {}
 
+  async initialize(): Promise<void> {
+    const interrupted = this.store
+      .listSessions()
+      .filter((session) =>
+        ["forming_team", "executing", "verifying", "recovering"].includes(
+          session.status,
+        ),
+      );
+    for (const session of interrupted) {
+      const completedAt = this.clock.now();
+      await this.store.updateSession(session.id, (stored) => {
+        stored.status = "cancelled";
+        stored.completedAt = completedAt;
+        stored.failureReason = "Server restarted while this Session was active";
+      });
+      await this.store.cancelSessionWork(session.id, completedAt);
+      await this.emit(session.id, "session.cancelled", { reason: "server_restart" });
+    }
+  }
+
   listSessions(): CoordinationSession[] {
     return this.store.listSessions();
   }
@@ -362,6 +382,7 @@ export class CoordinationService {
       stored.failureReason = reason.slice(0, 2_000);
       stored.completedAt = completedAt;
     });
+    await this.store.blockUnfinishedTasks(sessionId, completedAt);
     await this.emit(sessionId, "session.failed", { reason: reason.slice(0, 2_000) });
   }
 

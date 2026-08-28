@@ -85,6 +85,38 @@ describe("foundation coordination flow", () => {
     expect(service.getAttempts(session.id)).toHaveLength(2);
   });
 
+  it("records a failed Attempt and blocks dependent work", async () => {
+    const service = await makeService({
+      execute: async () => ({
+        status: "failed",
+        failureClass: "test_failure",
+        error: "Acceptance command exited with code 1",
+      }),
+      cancel: async () => false,
+    });
+    const { session } = await service.createSession({
+      userTask: "Exercise the failure path",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getSession(session.id)).toMatchObject({
+      status: "failed",
+      failureReason: "A foundation task failed",
+    });
+    expect(service.getTasks(session.id).map((task) => task.status)).toEqual([
+      "failed",
+      "blocked",
+    ]);
+    expect(service.getAttempts(session.id)[0]).toMatchObject({
+      status: "failed",
+      errorClass: "test_failure",
+    });
+    expect(service.getEvents(session.id).at(-1)?.type).toBe("session.failed");
+  });
+
   it("cancels active foundation work and leaves a terminal Session", async () => {
     let started!: () => void;
     const executionStarted = new Promise<void>((resolve) => {
@@ -121,6 +153,35 @@ describe("foundation coordination flow", () => {
     expect(stopped.status).toBe("cancelled");
     expect(service.getSession(session.id).status).toBe("cancelled");
     expect(service.getAttempts(session.id)[0]?.status).toBe("cancelled");
+    expect(service.getEvents(session.id).at(-1)?.type).toBe("session.cancelled");
+  });
+
+  it("reconciles persisted active work after a server restart", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "coordination-restart-test-"));
+    temporaryDirectories.push(root);
+    const jsonStore = new JsonStore(path.join(root, "database.json"));
+    await jsonStore.initialize();
+    const store = new CoordinationStore(jsonStore);
+    const service = new CoordinationService(
+      store,
+      new FakeCoordinationExecutor(0),
+      new JsonCoordinationEventSink(store),
+    );
+    const { session } = await service.createSession({
+      userTask: "Recover this interrupted Session",
+      participantAgentIds: [],
+    });
+    await store.startSession(session.id, new Date().toISOString());
+
+    await service.initialize();
+
+    expect(service.getSession(session.id)).toMatchObject({
+      status: "cancelled",
+      failureReason: "Server restarted while this Session was active",
+    });
+    expect(service.getTasks(session.id).every((task) => task.status === "blocked")).toBe(
+      true,
+    );
     expect(service.getEvents(session.id).at(-1)?.type).toBe("session.cancelled");
   });
 });
