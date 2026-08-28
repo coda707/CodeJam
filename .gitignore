@@ -14,3 +14,8 @@ coverage/
 deploy/volcengine/.terraform/
 deploy/volcengine/*.tfstate*
 deploy/volcengine/terraform.tfvars
+
+
+#codex files
+document
+tmp
