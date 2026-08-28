@@ -1,6 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { projectCoordinationMetrics } from "./metrics.js";
+import {
+  makeCoordinationArtifact,
+  makeCoordinationSession,
+  makeTaskAttempt,
+  makeTaskNode,
+} from "./test-support/factories.js";
 
 describe("projectCoordinationMetrics", () => {
   it("projects persisted usage, failures, recovery and evidence counts", () => {
@@ -9,91 +15,53 @@ describe("projectCoordinationMetrics", () => {
     const failedAttemptId = randomUUID();
     const recoveredAttemptId = randomUUID();
     const agentId = randomUUID();
-    const createdAt = "2026-08-29T00:00:00.000Z";
+    const session = makeCoordinationSession({
+      id: sessionId,
+      userTask: "Recover and verify",
+      status: "completed",
+      participantAgentIds: [agentId],
+      startedAt: "2026-08-29T00:00:01.000Z",
+      completedAt: "2026-08-29T00:00:04.500Z",
+    });
+    const task = makeTaskNode(session, {
+      id: taskId,
+      title: "Recovered task",
+      instructions: "Complete it",
+      status: "succeeded",
+      assignedAgentId: agentId,
+      attemptCount: 2,
+      updatedAt: "2026-08-29T00:00:04.500Z",
+    });
+    const failedAttempt = makeTaskAttempt(session, task, {
+      id: failedAttemptId,
+      agentId,
+      runId: randomUUID(),
+      status: "failed",
+      errorClass: "timeout",
+      errorMessage: "timed out",
+      usage: { inputTokens: 10, outputTokens: 2 },
+      completedAt: "2026-08-29T00:00:02.000Z",
+    });
+    const recoveredAttempt = makeTaskAttempt(session, task, {
+      id: recoveredAttemptId,
+      agentId,
+      runId: randomUUID(),
+      status: "succeeded",
+      retryOfAttemptId: failedAttemptId,
+      usage: { inputTokens: 12, cachedInputTokens: 4, outputTokens: 3 },
+      createdAt: "2026-08-29T00:00:02.100Z",
+      completedAt: "2026-08-29T00:00:04.500Z",
+    });
     const metrics = projectCoordinationMetrics(
-      {
-        id: sessionId,
-        userTask: "Recover and verify",
-        status: "completed",
-        topology: "sequential",
-        participantAgentIds: [agentId],
-        rootTraceId: randomUUID(),
-        budget: {
-          maxTasks: 8,
-          maxConcurrentTasks: 2,
-          maxAttemptsPerTask: 2,
-          maxAgentCalls: 8,
-          maxEvents: 500,
-        },
-        createdAt,
-        startedAt: "2026-08-29T00:00:01.000Z",
-        completedAt: "2026-08-29T00:00:04.500Z",
-      },
+      session,
+      [task],
+      [failedAttempt, recoveredAttempt],
       [
-        {
-          id: taskId,
-          sessionId,
-          title: "Recovered task",
-          instructions: "Complete it",
-          dependencies: [],
-          requiredCapabilities: ["delivery"],
-          acceptanceCriteria: [
-            {
-              id: "result",
-              kind: "artifact",
-              description: "Result exists",
-              value: "worker-output",
-            },
-          ],
-          status: "succeeded",
-          assignedAgentId: agentId,
-          attemptCount: 2,
-          createdAt,
-          updatedAt: "2026-08-29T00:00:04.500Z",
-        },
-      ],
-      [
-        {
-          id: failedAttemptId,
-          sessionId,
-          taskId,
-          agentId,
-          runId: randomUUID(),
-          status: "failed",
-          errorClass: "timeout",
-          errorMessage: "timed out",
-          usage: { inputTokens: 10, outputTokens: 2 },
-          createdAt,
-          completedAt: "2026-08-29T00:00:02.000Z",
-        },
-        {
-          id: recoveredAttemptId,
-          sessionId,
-          taskId,
-          agentId,
-          runId: randomUUID(),
-          status: "succeeded",
-          retryOfAttemptId: failedAttemptId,
-          usage: { inputTokens: 12, cachedInputTokens: 4, outputTokens: 3 },
-          createdAt: "2026-08-29T00:00:02.100Z",
-          completedAt: "2026-08-29T00:00:04.500Z",
-        },
-      ],
-      [
-        {
-          id: randomUUID(),
-          sessionId,
-          taskId,
-          attemptId: recoveredAttemptId,
+        makeCoordinationArtifact(session, task, recoveredAttempt, {
           producerAgentId: agentId,
-          type: "report",
-          schemaVersion: 1,
           sourcePath: "result.txt",
-          path: `${sessionId}/${recoveredAttemptId}/result.txt`,
           contentHash: "b".repeat(64),
-          verificationStatus: "accepted",
-          createdAt,
-        },
+        }),
       ],
       [],
     );

@@ -6,64 +6,10 @@ import {
   buildWorkerPrompt,
   type AgentExecutionService,
 } from "./agent-executor-adapter.js";
-import type { TaskExecutionRequest } from "./ports.js";
-
-const timestamp = "2026-08-29T00:00:00.000Z";
-
-function makeRequest(agentId: string | null = randomUUID()): TaskExecutionRequest {
-  const sessionId = randomUUID();
-  const taskId = randomUUID();
-  const attemptId = randomUUID();
-  return {
-    session: {
-      id: sessionId,
-      userTask: "Build and verify a small feature",
-      status: "executing",
-      topology: "sequential",
-      participantAgentIds: agentId ? [agentId] : [],
-      rootTraceId: randomUUID(),
-      budget: {
-        maxTasks: 8,
-        maxConcurrentTasks: 2,
-        maxAttemptsPerTask: 2,
-        maxAgentCalls: 8,
-        maxEvents: 500,
-      },
-      createdAt: timestamp,
-    },
-    task: {
-      id: taskId,
-      sessionId,
-      title: "Implement the feature",
-      instructions: "Create the requested files and report evidence.",
-      dependencies: [],
-      requiredCapabilities: ["delivery"],
-      acceptanceCriteria: [
-        {
-          id: "worker-output",
-          kind: "artifact",
-          description: "Return structured output",
-          value: "worker-output",
-        },
-      ],
-      status: "running",
-      ...(agentId ? { assignedAgentId: agentId } : {}),
-      attemptCount: 1,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    },
-    attempt: {
-      id: attemptId,
-      sessionId,
-      taskId,
-      ...(agentId ? { agentId } : {}),
-      status: "running",
-      createdAt: timestamp,
-      startedAt: timestamp,
-    },
-    dependencyContext: [],
-  };
-}
+import {
+  COORDINATION_TEST_TIMESTAMP,
+  makeTaskExecutionRequest,
+} from "./test-support/factories.js";
 
 function makeRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -79,16 +25,16 @@ function makeRun(overrides: Partial<AgentRun> = {}): AgentRun {
     }),
     error: null,
     usage: { inputTokens: 10, outputTokens: 5 },
-    startedAt: timestamp,
-    completedAt: timestamp,
-    createdAt: timestamp,
+    startedAt: COORDINATION_TEST_TIMESTAMP,
+    completedAt: COORDINATION_TEST_TIMESTAMP,
+    createdAt: COORDINATION_TEST_TIMESTAMP,
     ...overrides,
   };
 }
 
 describe("AgentServiceCoordinationExecutor", () => {
   it("launches an Agent Run and returns strict WorkerOutput with correlation", async () => {
-    const request = makeRequest();
+    const request = makeTaskExecutionRequest();
     const run = makeRun({ agentId: request.attempt.agentId! });
     let receivedPrompt = "";
     const service: AgentExecutionService = {
@@ -113,7 +59,7 @@ describe("AgentServiceCoordinationExecutor", () => {
   });
 
   it("includes verified dependency output and Artifact evidence in the prompt", () => {
-    const request = makeRequest();
+    const request = makeTaskExecutionRequest();
     const dependencyTaskId = randomUUID();
     const dependencyAttemptId = randomUUID();
     request.dependencyContext = [
@@ -147,7 +93,7 @@ describe("AgentServiceCoordinationExecutor", () => {
             sourcePath: "reports/plan.md",
             contentHash: "a".repeat(64),
             verificationStatus: "accepted",
-            createdAt: timestamp,
+            createdAt: COORDINATION_TEST_TIMESTAMP,
           },
         ],
       },
@@ -162,7 +108,7 @@ describe("AgentServiceCoordinationExecutor", () => {
   });
 
   it("rejects malformed Agent output instead of trusting completion", async () => {
-    const request = makeRequest();
+    const request = makeTaskExecutionRequest();
     const run = makeRun({ agentId: request.attempt.agentId!, output: "done" });
     const service: AgentExecutionService = {
       sendMessage: async () => ({ run: { ...run, status: "queued" } }),
@@ -189,7 +135,9 @@ describe("AgentServiceCoordinationExecutor", () => {
     };
 
     await expect(
-      new AgentServiceCoordinationExecutor(service).execute(makeRequest(null)),
+      new AgentServiceCoordinationExecutor(service).execute(
+        makeTaskExecutionRequest(null),
+      ),
     ).resolves.toMatchObject({
       status: "failed",
       failureClass: "agent_capability_mismatch",
@@ -197,7 +145,7 @@ describe("AgentServiceCoordinationExecutor", () => {
   });
 
   it("propagates Attempt cancellation to its correlated Agent Run", async () => {
-    const request = makeRequest();
+    const request = makeTaskExecutionRequest();
     const queued = makeRun({
       agentId: request.attempt.agentId!,
       status: "queued",
@@ -218,7 +166,7 @@ describe("AgentServiceCoordinationExecutor", () => {
           ...queued,
           status: "cancelled",
           error: "Run was cancelled",
-          completedAt: timestamp,
+          completedAt: COORDINATION_TEST_TIMESTAMP,
         });
         return true;
       },

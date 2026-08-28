@@ -5,11 +5,14 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { JsonStore } from "../store.js";
 import { FileCoordinationArtifactStore } from "./artifact-store.js";
-import type { CoordinationSession, TaskAttempt, TaskNode } from "./contracts.js";
 import { CoordinationStore } from "./coordination-store.js";
+import {
+  makeCoordinationSession,
+  makeTaskAttempt,
+  makeTaskNode,
+} from "./test-support/factories.js";
 
 const temporaryDirectories: string[] = [];
-const timestamp = "2026-08-29T00:00:00.000Z";
 
 afterEach(async () => {
   await Promise.all(
@@ -29,28 +32,13 @@ async function makeFixture() {
   await jsonStore.initialize();
   const store = new CoordinationStore(jsonStore);
   const agentId = randomUUID();
-  const session: CoordinationSession = {
-    id: randomUUID(),
+  const session = makeCoordinationSession({
     userTask: "Capture real evidence",
-    status: "executing",
-    topology: "sequential",
     participantAgentIds: [agentId],
-    rootTraceId: randomUUID(),
-    budget: {
-      maxTasks: 8,
-      maxConcurrentTasks: 2,
-      maxAttemptsPerTask: 2,
-      maxAgentCalls: 8,
-      maxEvents: 500,
-    },
-    createdAt: timestamp,
-  };
-  const task: TaskNode = {
-    id: randomUUID(),
-    sessionId: session.id,
+  });
+  const task = makeTaskNode(session, {
     title: "Produce a report",
     instructions: "Write the report",
-    dependencies: [],
     requiredCapabilities: ["reporting"],
     acceptanceCriteria: [
       {
@@ -60,21 +48,9 @@ async function makeFixture() {
         value: "reports/result.txt",
       },
     ],
-    status: "running",
     assignedAgentId: agentId,
-    attemptCount: 1,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  };
-  const attempt: TaskAttempt = {
-    id: randomUUID(),
-    sessionId: session.id,
-    taskId: task.id,
-    agentId,
-    status: "running",
-    createdAt: timestamp,
-    startedAt: timestamp,
-  };
+  });
+  const attempt = makeTaskAttempt(session, task, { agentId });
   await store.createSession(session, [task]);
   await store.createAttempt(attempt);
   return {
