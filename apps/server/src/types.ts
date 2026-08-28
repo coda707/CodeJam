@@ -1,3 +1,11 @@
+import type {
+  CoordinationArtifact,
+  CoordinationEvent,
+  CoordinationSession,
+  TaskAttempt,
+  TaskNode,
+} from "./multi-agent/contracts.js";
+
 export type AgentStatus = "ready" | "busy" | "stopped" | "error";
 export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type MessageRole = "user" | "assistant";
@@ -48,6 +56,11 @@ export interface Database {
   agents: Agent[];
   messages: Message[];
   runs: AgentRun[];
+  coordinationSessions: CoordinationSession[];
+  coordinationTasks: TaskNode[];
+  coordinationAttempts: TaskAttempt[];
+  coordinationArtifacts: CoordinationArtifact[];
+  coordinationEvents: CoordinationEvent[];
 }
 
 export interface CreateAgentInput {

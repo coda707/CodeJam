@@ -7,6 +7,30 @@ const emptyDatabase = (): Database => ({
   agents: [],
   messages: [],
   runs: [],
+  coordinationSessions: [],
+  coordinationTasks: [],
+  coordinationAttempts: [],
+  coordinationArtifacts: [],
+  coordinationEvents: [],
+});
+
+const normalizeDatabase = (database: Database): Database => ({
+  ...database,
+  coordinationSessions: Array.isArray(database.coordinationSessions)
+    ? database.coordinationSessions
+    : [],
+  coordinationTasks: Array.isArray(database.coordinationTasks)
+    ? database.coordinationTasks
+    : [],
+  coordinationAttempts: Array.isArray(database.coordinationAttempts)
+    ? database.coordinationAttempts
+    : [],
+  coordinationArtifacts: Array.isArray(database.coordinationArtifacts)
+    ? database.coordinationArtifacts
+    : [],
+  coordinationEvents: Array.isArray(database.coordinationEvents)
+    ? database.coordinationEvents
+    : [],
 });
 
 export class JsonStore {
@@ -23,7 +47,7 @@ export class JsonStore {
       if (parsed.version !== 1 || !Array.isArray(parsed.agents)) {
         throw new Error("Unsupported database format");
       }
-      this.data = parsed;
+      this.data = normalizeDatabase(parsed);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;

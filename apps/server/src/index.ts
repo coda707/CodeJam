@@ -5,6 +5,10 @@ import { loadConfig, writeCodexConfig } from "./config.js";
 import { createRunner } from "./runner-factory.js";
 import { JsonStore } from "./store.js";
 import { WorkspaceManager } from "./workspace.js";
+import { CoordinationService } from "./multi-agent/coordination-service.js";
+import { CoordinationStore } from "./multi-agent/coordination-store.js";
+import { JsonCoordinationEventSink } from "./multi-agent/event-store.js";
+import { FakeCoordinationExecutor } from "./multi-agent/fake-executor.js";
 
 const config = loadConfig();
 await writeCodexConfig(config);
@@ -15,7 +19,14 @@ const runner = createRunner(config);
 const service = new AgentService(config, store, workspaces, runner);
 await service.initialize();
 
-const app = await createApp(config, service);
+const coordinationStore = new CoordinationStore(store);
+const coordinationService = new CoordinationService(
+  coordinationStore,
+  new FakeCoordinationExecutor(),
+  new JsonCoordinationEventSink(coordinationStore),
+);
+
+const app = await createApp(config, service, coordinationService);
 
 const shutdown = async (signal: string) => {
   app.log.info({ signal }, "Shutting down");
