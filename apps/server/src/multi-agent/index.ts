@@ -9,4 +9,6 @@ export * from "./failure-classifier.js";
 export * from "./metrics.js";
 export * from "./planner.js";
 export * from "./ports.js";
+export * from "./recovery-policy.js";
+export * from "./team-builder.js";
 export * from "./verifier.js";

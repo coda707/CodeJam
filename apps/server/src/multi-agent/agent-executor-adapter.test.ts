@@ -61,6 +61,7 @@ function makeRequest(agentId: string | null = randomUUID()): TaskExecutionReques
       createdAt: timestamp,
       startedAt: timestamp,
     },
+    dependencyContext: [],
   };
 }
 
@@ -109,6 +110,55 @@ describe("AgentServiceCoordinationExecutor", () => {
     });
     expect(receivedPrompt).toBe(buildWorkerPrompt(request));
     expect(receivedPrompt).toContain("exactly one JSON object");
+  });
+
+  it("includes verified dependency output and Artifact evidence in the prompt", () => {
+    const request = makeRequest();
+    const dependencyTaskId = randomUUID();
+    const dependencyAttemptId = randomUUID();
+    request.dependencyContext = [
+      {
+        task: {
+          ...request.task,
+          id: dependencyTaskId,
+          title: "Prepare the implementation plan",
+          status: "succeeded",
+        },
+        attempt: {
+          ...request.attempt,
+          id: dependencyAttemptId,
+          taskId: dependencyTaskId,
+          status: "succeeded",
+          workerOutput: {
+            summary: "Use a two-stage implementation",
+            artifactPaths: ["reports/plan.md"],
+            evidence: ["Plan verified"],
+            unresolvedIssues: [],
+          },
+        },
+        artifacts: [
+          {
+            id: randomUUID(),
+            sessionId: request.session.id,
+            taskId: dependencyTaskId,
+            attemptId: dependencyAttemptId,
+            type: "plan",
+            schemaVersion: 1,
+            sourcePath: "reports/plan.md",
+            contentHash: "a".repeat(64),
+            verificationStatus: "accepted",
+            createdAt: timestamp,
+          },
+        ],
+      },
+    ];
+
+    const prompt = buildWorkerPrompt(request);
+
+    expect(prompt).toContain("Verified dependency context:");
+    expect(prompt).toContain("Use a two-stage implementation");
+    expect(prompt).toContain("reports/plan.md");
+    expect(prompt).toContain("a".repeat(64));
   });
 
   it("rejects malformed Agent output instead of trusting completion", async () => {

@@ -17,14 +17,30 @@ import type {
   CoordinationEventSink,
   CoordinationExecutor,
   CoordinationIdGenerator,
+  CoordinationPlanner,
+  CoordinationRecoveryPolicy,
+  CoordinationTeamBuilder,
   CoordinationVerifier,
+  TaskDependencyContext,
+  TaskExecutionRequest,
   TaskExecutionResult,
 } from "./ports.js";
-import { createFoundationPlan } from "./planner.js";
+import {
+  FoundationCoordinationPlanner,
+  validatePlannerOutput,
+} from "./planner.js";
 import type { CoordinationStore } from "./coordination-store.js";
 import { NoopCoordinationArtifactRepository } from "./artifact-store.js";
 import { MechanicalCoordinationVerifier } from "./verifier.js";
 import { projectCoordinationMetrics } from "./metrics.js";
+import {
+  ParticipantOrderTeamBuilder,
+  validateTeamBuilderOutput,
+} from "./team-builder.js";
+import {
+  StopCoordinationRecoveryPolicy,
+  validateRecoveryDecision,
+} from "./recovery-policy.js";
 
 const systemClock: CoordinationClock = { now: () => new Date().toISOString() };
 const uuidGenerator: CoordinationIdGenerator = { next: () => randomUUID() };
@@ -34,6 +50,9 @@ export interface CoordinationServiceOptions {
   ids?: CoordinationIdGenerator;
   artifacts?: CoordinationArtifactRepository;
   verifier?: CoordinationVerifier;
+  planner?: CoordinationPlanner;
+  teamBuilder?: CoordinationTeamBuilder;
+  recoveryPolicy?: CoordinationRecoveryPolicy;
 }
 
 export class CoordinationService {
@@ -44,6 +63,9 @@ export class CoordinationService {
   private readonly ids: CoordinationIdGenerator;
   private readonly artifacts: CoordinationArtifactRepository;
   private readonly verifier: CoordinationVerifier;
+  private readonly planner: CoordinationPlanner;
+  private readonly teamBuilder: CoordinationTeamBuilder;
+  private readonly recoveryPolicy: CoordinationRecoveryPolicy;
 
   constructor(
     private readonly store: CoordinationStore,
@@ -55,6 +77,10 @@ export class CoordinationService {
     this.ids = options.ids ?? uuidGenerator;
     this.artifacts = options.artifacts ?? new NoopCoordinationArtifactRepository();
     this.verifier = options.verifier ?? new MechanicalCoordinationVerifier();
+    this.planner = options.planner ?? new FoundationCoordinationPlanner();
+    this.teamBuilder = options.teamBuilder ?? new ParticipantOrderTeamBuilder();
+    this.recoveryPolicy =
+      options.recoveryPolicy ?? new StopCoordinationRecoveryPolicy();
   }
 
   async initialize(): Promise<void> {
@@ -117,15 +143,32 @@ export class CoordinationService {
     value: CreateCoordinationSessionInput,
   ): Promise<{ session: CoordinationSession; tasks: TaskNode[] }> {
     const input = createCoordinationSessionInputSchema.parse(value);
-    const plan = createFoundationPlan(input.userTask);
+    const plan = validatePlannerOutput(
+      await this.planner.plan({
+        userTask: input.userTask,
+        participantAgentIds: input.participantAgentIds,
+      }),
+    );
+    const team = validateTeamBuilderOutput(
+      await this.teamBuilder.select({
+        userTask: input.userTask,
+        plan,
+        candidateAgentIds: input.participantAgentIds,
+      }),
+      plan,
+      input.participantAgentIds,
+    );
     const createdAt = this.clock.now();
     const taskIds = new Map(plan.tasks.map((task) => [task.key, this.ids.next()]));
+    const assignments = new Map(
+      team.assignments.map((assignment) => [assignment.taskKey, assignment.agentId]),
+    );
     const session: CoordinationSession = {
       id: this.ids.next(),
       userTask: input.userTask,
       status: "planning",
       topology: plan.topology,
-      participantAgentIds: input.participantAgentIds,
+      participantAgentIds: team.participantAgentIds,
       rootTraceId: this.ids.next(),
       budget: {
         maxTasks: 8,
@@ -145,6 +188,9 @@ export class CoordinationService {
       requiredCapabilities: task.requiredCapabilities,
       acceptanceCriteria: task.acceptanceCriteria,
       status: "pending",
+      ...(assignments.has(task.key)
+        ? { assignedAgentId: assignments.get(task.key)! }
+        : {}),
       attemptCount: 0,
       createdAt,
       updatedAt: createdAt,
@@ -159,6 +205,17 @@ export class CoordinationService {
       explanation: plan.explanation,
       taskIds: tasks.map((task) => task.id),
     });
+    for (const assignment of team.assignments) {
+      await this.emit(
+        session.id,
+        "agent.selected",
+        { taskKey: assignment.taskKey, explanation: team.explanation },
+        {
+          taskId: taskIds.get(assignment.taskKey),
+          agentId: assignment.agentId,
+        },
+      );
+    }
     return { session, tasks };
   }
 
@@ -225,8 +282,10 @@ export class CoordinationService {
           });
           return;
         }
-        if (tasks.some((task) => task.status === "failed")) {
-          await this.failSession(sessionId, "A foundation task failed");
+        const failedTask = tasks.find((task) => task.status === "failed");
+        if (failedTask) {
+          const recovered = await this.recoverTask(session, failedTask, signal);
+          if (recovered) continue;
           return;
         }
 
@@ -273,9 +332,14 @@ export class CoordinationService {
     await this.emit(session.id, "task.ready", { title: task.title }, { taskId: task.id });
 
     const agentId =
+      task.assignedAgentId ??
       session.participantAgentIds[
         task.attemptCount % Math.max(session.participantAgentIds.length, 1)
       ];
+    const previousAttempt = this.store
+      .getAttempts(session.id)
+      .filter((item) => item.taskId === task.id)
+      .at(-1);
     const attempt: TaskAttempt = {
       id: this.ids.next(),
       sessionId: session.id,
@@ -283,6 +347,9 @@ export class CoordinationService {
       status: "created",
       createdAt: this.clock.now(),
       ...(agentId ? { agentId } : {}),
+      ...(previousAttempt?.status === "failed"
+        ? { retryOfAttemptId: previousAttempt.id }
+        : {}),
     };
     await this.store.createAttempt(attempt);
     const leasedAt = this.clock.now();
@@ -330,11 +397,14 @@ export class CoordinationService {
     );
 
     let result: TaskExecutionResult;
+    const request: TaskExecutionRequest = {
+      session,
+      task: runningTask,
+      attempt: runningAttempt,
+      dependencyContext: this.getDependencyContext(session.id, runningTask),
+    };
     try {
-      result = await this.executor.execute(
-        { session, task: runningTask, attempt: runningAttempt },
-        signal,
-      );
+      result = await this.executor.execute(request, signal);
     } catch (error) {
       result = {
         status: "failed",
@@ -347,6 +417,7 @@ export class CoordinationService {
         session,
         runningTask,
         runningAttempt,
+        request.dependencyContext,
         result,
       );
     }
@@ -361,6 +432,7 @@ export class CoordinationService {
     session: CoordinationSession,
     task: TaskNode,
     attempt: TaskAttempt,
+    dependencyContext: TaskDependencyContext[],
     result: Extract<TaskExecutionResult, { status: "succeeded" }>,
   ): Promise<TaskExecutionResult> {
     const correlation = {
@@ -388,7 +460,7 @@ export class CoordinationService {
       await this.emit(session.id, "verification.started", {}, correlation);
 
       const capture = await this.artifacts.capture(
-        { session, task, attempt },
+        { session, task, attempt, dependencyContext },
         result.output,
       );
       if (capture.status === "rejected") {
@@ -520,6 +592,7 @@ export class CoordinationService {
         stored.completedAt = completedAt;
         if (result.runId) stored.runId = result.runId;
         if (result.usage) stored.usage = result.usage;
+        stored.workerOutput = result.output;
       });
       await this.store.updateTask(task.id, (stored) => {
         stored.status = "succeeded";
@@ -564,6 +637,125 @@ export class CoordinationService {
       { title: task.title },
       correlation,
     );
+  }
+
+  private getDependencyContext(
+    sessionId: string,
+    task: TaskNode,
+  ): TaskDependencyContext[] {
+    if (task.dependencies.length === 0) return [];
+    const tasks = new Map(
+      this.store.getTasks(sessionId).map((stored) => [stored.id, stored]),
+    );
+    const attempts = this.store.getAttempts(sessionId);
+    const artifacts = this.store.getArtifacts(sessionId);
+    return task.dependencies.map((dependencyId) => {
+      const dependency = tasks.get(dependencyId);
+      if (!dependency) {
+        throw new HttpError(409, "Task dependency no longer exists");
+      }
+      const attempt = attempts
+        .filter(
+          (stored) =>
+            stored.taskId === dependencyId &&
+            stored.status === "succeeded" &&
+            stored.workerOutput,
+        )
+        .at(-1);
+      if (!attempt?.workerOutput) {
+        throw new HttpError(409, "Task dependency has no verified WorkerOutput");
+      }
+      return {
+        task: dependency,
+        attempt,
+        artifacts: artifacts.filter(
+          (artifact) =>
+            artifact.attemptId === attempt.id &&
+            artifact.verificationStatus === "accepted",
+        ),
+      };
+    });
+  }
+
+  private async recoverTask(
+    session: CoordinationSession,
+    task: TaskNode,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const attempts = this.store
+      .getAttempts(session.id)
+      .filter((attempt) => attempt.taskId === task.id);
+    const failedAttempt = attempts.at(-1);
+    if (!failedAttempt || failedAttempt.status !== "failed") {
+      throw new HttpError(409, "Failed Task has no failed Attempt");
+    }
+    const recoveringSession = await this.store.updateSession(session.id, (stored) => {
+      stored.status = "recovering";
+    });
+    const request = {
+      session: recoveringSession,
+      task,
+      failedAttempt,
+      attempts,
+      availableAgentIds: recoveringSession.participantAgentIds,
+    };
+    const decision = validateRecoveryDecision(
+      await this.recoveryPolicy.decide(request, signal),
+      request,
+    );
+    await this.emit(
+      session.id,
+      "recovery.decided",
+      {
+        action: decision.action,
+        reason: decision.reason,
+        nextAgentId: decision.nextAgentId ?? null,
+      },
+      {
+        taskId: task.id,
+        attemptId: failedAttempt.id,
+        ...(failedAttempt.agentId ? { agentId: failedAttempt.agentId } : {}),
+      },
+    );
+
+    if (decision.action === "stop") {
+      await this.failSession(session.id, decision.reason);
+      return false;
+    }
+    if (decision.action === "request_approval") {
+      await this.store.updateSession(session.id, (stored) => {
+        stored.status = "waiting_approval";
+        stored.failureReason = decision.reason;
+      });
+      return false;
+    }
+
+    await this.store.updateTask(task.id, (stored) => {
+      stored.status = "pending";
+      stored.updatedAt = this.clock.now();
+      if (decision.action === "reassign") {
+        stored.assignedAgentId = decision.nextAgentId!;
+      }
+    });
+    await this.store.updateSession(session.id, (stored) => {
+      stored.status = "executing";
+      delete stored.failureReason;
+    });
+    await this.emit(
+      session.id,
+      decision.action === "reassign" ? "task.reassigned" : "task.retried",
+      { reason: decision.reason, retryOfAttemptId: failedAttempt.id },
+      {
+        taskId: task.id,
+        attemptId: failedAttempt.id,
+        ...(decision.nextAgentId
+          ? { agentId: decision.nextAgentId }
+          : failedAttempt.agentId
+            ? { agentId: failedAttempt.agentId }
+            : {}),
+      },
+    );
+    return true;
   }
 
   private async failSession(sessionId: string, reason: string): Promise<void> {

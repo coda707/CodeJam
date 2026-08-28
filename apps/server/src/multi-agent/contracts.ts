@@ -7,6 +7,7 @@ export const MAX_EVENT_PAYLOAD_BYTES = 32_768;
 const boundedId = z.string().uuid();
 const timestamp = z.string().datetime({ offset: true });
 const boundedText = (maximum: number) => z.string().trim().min(1).max(maximum);
+const taskKeySchema = z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/);
 
 export type JsonValue =
   | null
@@ -146,6 +147,13 @@ export const taskNodeSchema = z.strictObject({
   updatedAt: timestamp,
 });
 
+export const workerOutputSchema = z.strictObject({
+  summary: boundedText(5_000),
+  artifactPaths: z.array(z.string().max(1_000)).max(32),
+  evidence: z.array(boundedText(2_000)).max(32),
+  unresolvedIssues: z.array(boundedText(2_000)).max(32),
+});
+
 export const taskAttemptSchema = z.strictObject({
   id: boundedId,
   sessionId: boundedId,
@@ -165,6 +173,7 @@ export const taskAttemptSchema = z.strictObject({
       outputTokens: z.number().int().min(0).optional(),
     })
     .optional(),
+  workerOutput: workerOutputSchema.optional(),
   createdAt: timestamp,
 });
 
@@ -210,6 +219,7 @@ export const coordinationEventTypeSchema = z.enum([
   "verification.started",
   "verification.passed",
   "verification.failed",
+  "recovery.decided",
   "integration.completed",
 ]);
 
@@ -266,11 +276,11 @@ export const createCoordinationSessionInputSchema = z.strictObject({
 });
 
 const plannerTaskSchema = z.strictObject({
-  key: z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/),
+  key: taskKeySchema,
   title: boundedText(160),
   instructions: boundedText(10_000),
   dependencies: z
-    .array(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/))
+    .array(taskKeySchema)
     .max(MAX_COORDINATION_TASKS),
   requiredCapabilities: z.array(boundedText(80)).max(16),
   acceptanceCriteria: z.array(acceptanceCriterionSchema).min(1).max(16),
@@ -282,11 +292,30 @@ export const plannerOutputSchema = z.strictObject({
   tasks: z.array(plannerTaskSchema).min(1).max(MAX_COORDINATION_TASKS),
 });
 
-export const workerOutputSchema = z.strictObject({
-  summary: boundedText(5_000),
-  artifactPaths: z.array(z.string().max(1_000)).max(32),
-  evidence: z.array(boundedText(2_000)).max(32),
-  unresolvedIssues: z.array(boundedText(2_000)).max(32),
+export const teamBuilderOutputSchema = z.strictObject({
+  participantAgentIds: z.array(boundedId).max(32),
+  assignments: z
+    .array(
+      z.strictObject({
+        taskKey: taskKeySchema,
+        agentId: boundedId,
+      }),
+    )
+    .max(MAX_COORDINATION_TASKS),
+  explanation: boundedText(2_000),
+});
+
+export const recoveryActionSchema = z.enum([
+  "retry",
+  "reassign",
+  "request_approval",
+  "stop",
+]);
+
+export const recoveryDecisionSchema = z.strictObject({
+  action: recoveryActionSchema,
+  reason: boundedText(2_000),
+  nextAgentId: boundedId.optional(),
 });
 
 export const reviewerOutputSchema = z.strictObject({
@@ -317,4 +346,7 @@ export type CreateCoordinationSessionInput = z.infer<
 >;
 export type PlannerOutput = z.infer<typeof plannerOutputSchema>;
 export type WorkerOutput = z.infer<typeof workerOutputSchema>;
+export type TeamBuilderOutput = z.infer<typeof teamBuilderOutputSchema>;
+export type RecoveryAction = z.infer<typeof recoveryActionSchema>;
+export type RecoveryDecision = z.infer<typeof recoveryDecisionSchema>;
 export type ReviewerOutput = z.infer<typeof reviewerOutputSchema>;

@@ -4,15 +4,50 @@ import type {
   CoordinationSession,
   CoordinationRunUsage,
   FailureClass,
+  PlannerOutput,
+  RecoveryDecision,
   TaskAttempt,
   TaskNode,
+  TeamBuilderOutput,
   WorkerOutput,
 } from "./contracts.js";
+
+export interface CoordinationPlanningRequest {
+  userTask: string;
+  participantAgentIds: string[];
+}
+
+export interface CoordinationPlanner {
+  plan(
+    request: CoordinationPlanningRequest,
+    signal?: AbortSignal,
+  ): Promise<PlannerOutput>;
+}
+
+export interface CoordinationTeamBuilderRequest {
+  userTask: string;
+  plan: PlannerOutput;
+  candidateAgentIds: string[];
+}
+
+export interface CoordinationTeamBuilder {
+  select(
+    request: CoordinationTeamBuilderRequest,
+    signal?: AbortSignal,
+  ): Promise<TeamBuilderOutput>;
+}
+
+export interface TaskDependencyContext {
+  task: TaskNode;
+  attempt: TaskAttempt;
+  artifacts: CoordinationArtifact[];
+}
 
 export interface TaskExecutionRequest {
   session: CoordinationSession;
   task: TaskNode;
   attempt: TaskAttempt;
+  dependencyContext: TaskDependencyContext[];
 }
 
 export type TaskExecutionResult =
@@ -30,7 +65,6 @@ export type TaskExecutionResult =
       usage?: CoordinationRunUsage;
     };
 
-/** Developer B implements this port with the existing AgentService Run path. */
 export interface CoordinationExecutor {
   execute(
     request: TaskExecutionRequest,
@@ -51,7 +85,6 @@ export type VerificationResult =
   | { status: "accepted"; evidence: string[] }
   | { status: "rejected"; evidence: string[]; failureClass: FailureClass };
 
-/** Developer B implements mechanical and optional semantic verification here. */
 export interface CoordinationVerifier {
   verify(request: VerificationRequest): Promise<VerificationResult>;
 }
@@ -60,7 +93,6 @@ export type ArtifactCaptureResult =
   | { status: "captured"; artifacts: CoordinationArtifact[] }
   | { status: "rejected"; failureClass: FailureClass; error: string };
 
-/** Developer B owns safe file capture and bounded Artifact persistence here. */
 export interface CoordinationArtifactRepository {
   capture(
     request: TaskExecutionRequest,
@@ -68,9 +100,23 @@ export interface CoordinationArtifactRepository {
   ): Promise<ArtifactCaptureResult>;
 }
 
-/** Developer C owns the bounded event store behind this event sink. */
 export interface CoordinationEventSink {
   append(event: CoordinationEvent): Promise<void>;
+}
+
+export interface RecoveryPolicyRequest {
+  session: CoordinationSession;
+  task: TaskNode;
+  failedAttempt: TaskAttempt;
+  attempts: TaskAttempt[];
+  availableAgentIds: string[];
+}
+
+export interface CoordinationRecoveryPolicy {
+  decide(
+    request: RecoveryPolicyRequest,
+    signal?: AbortSignal,
+  ): Promise<RecoveryDecision>;
 }
 
 export interface CoordinationClock {

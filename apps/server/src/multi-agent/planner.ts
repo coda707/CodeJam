@@ -3,6 +3,10 @@ import {
   plannerOutputSchema,
   type PlannerOutput,
 } from "./contracts.js";
+import type {
+  CoordinationPlanner,
+  CoordinationPlanningRequest,
+} from "./ports.js";
 
 export function validatePlannerOutput(value: unknown): PlannerOutput {
   const plan = plannerOutputSchema.parse(value);
@@ -46,7 +50,7 @@ export function validatePlannerOutput(value: unknown): PlannerOutput {
 
 export function createFoundationPlan(userTask: string): PlannerOutput {
   const taskContext =
-    userTask.length > 9_000 ? userTask.slice(0, 8_999) + "…" : userTask;
+    userTask.length > 9_000 ? userTask.slice(0, 8_997) + "..." : userTask;
   return validatePlannerOutput({
     topology: "sequential",
     explanation:
@@ -84,4 +88,10 @@ export function createFoundationPlan(userTask: string): PlannerOutput {
       },
     ],
   });
+}
+
+export class FoundationCoordinationPlanner implements CoordinationPlanner {
+  async plan(request: CoordinationPlanningRequest): Promise<PlannerOutput> {
+    return createFoundationPlan(request.userTask);
+  }
 }

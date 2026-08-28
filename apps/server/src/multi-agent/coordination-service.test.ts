@@ -198,6 +198,98 @@ describe("foundation coordination flow", () => {
     );
   });
 
+  it("passes verified dependency output to downstream execution", async () => {
+    const requests: TaskExecutionRequest[] = [];
+    const service = await makeService({
+      execute: async (request) => {
+        requests.push(request);
+        return {
+          status: "succeeded",
+          output: {
+            summary: `Completed ${request.task.title}`,
+            artifactPaths: [],
+            evidence: ["Execution completed"],
+            unresolvedIssues: [],
+          },
+        };
+      },
+      cancel: async () => false,
+    });
+    const { session } = await service.createSession({
+      userTask: "Pass verified work between Tasks",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(requests).toHaveLength(2);
+    expect(requests[0]?.dependencyContext).toEqual([]);
+    expect(requests[1]?.dependencyContext).toHaveLength(1);
+    expect(requests[1]?.dependencyContext[0]?.attempt.workerOutput).toMatchObject({
+      summary: "Completed Plan the requested work",
+    });
+    expect(requests[1]?.dependencyContext[0]?.artifacts).toEqual([]);
+  });
+
+  it("applies a bounded retry decision from the RecoveryPolicy", async () => {
+    let calls = 0;
+    const root = await mkdtemp(path.join(tmpdir(), "coordination-recovery-test-"));
+    temporaryDirectories.push(root);
+    const jsonStore = new JsonStore(path.join(root, "database.json"));
+    await jsonStore.initialize();
+    const store = new CoordinationStore(jsonStore);
+    const service = new CoordinationService(
+      store,
+      {
+        execute: async () => {
+          calls += 1;
+          if (calls === 1) {
+            return {
+              status: "failed",
+              failureClass: "transient_provider_error",
+              error: "Temporary provider error",
+            };
+          }
+          return {
+            status: "succeeded",
+            output: {
+              summary: "Recovered execution",
+              artifactPaths: [],
+              evidence: ["Execution completed"],
+              unresolvedIssues: [],
+            },
+          };
+        },
+        cancel: async () => false,
+      },
+      new JsonCoordinationEventSink(store),
+      {
+        recoveryPolicy: {
+          decide: async () => ({
+            action: "retry",
+            reason: "Retry one transient failure",
+          }),
+        },
+      },
+    );
+    const { session } = await service.createSession({
+      userTask: "Recover one transient failure",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getSession(session.id).status).toBe("completed");
+    const attempts = service.getAttempts(session.id);
+    expect(attempts).toHaveLength(3);
+    expect(attempts[1]?.retryOfAttemptId).toBe(attempts[0]?.id);
+    expect(service.getEvents(session.id).some((event) => event.type === "task.retried")).toBe(
+      true,
+    );
+  });
+
   it("cancels active foundation work and leaves a terminal Session", async () => {
     let started!: () => void;
     const executionStarted = new Promise<void>((resolve) => {

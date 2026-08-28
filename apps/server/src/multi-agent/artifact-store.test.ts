@@ -105,6 +105,7 @@ describe("FileCoordinationArtifactStore", () => {
         session: fixture.session,
         task: fixture.task,
         attempt: fixture.attempt,
+        dependencyContext: [],
       },
       {
         summary: "Produced the report",
@@ -139,6 +140,7 @@ describe("FileCoordinationArtifactStore", () => {
           session: fixture.session,
           task: fixture.task,
           attempt: fixture.attempt,
+          dependencyContext: [],
         },
         {
           summary: "Claimed an outside file",

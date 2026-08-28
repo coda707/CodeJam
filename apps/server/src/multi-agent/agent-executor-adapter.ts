@@ -14,7 +14,7 @@ export interface AgentExecutionService {
 }
 
 const truncate = (value: string, maximum: number): string =>
-  value.length <= maximum ? value : value.slice(0, maximum - 1) + "…";
+  value.length <= maximum ? value : value.slice(0, maximum - 3) + "...";
 
 export function buildWorkerPrompt(request: TaskExecutionRequest): string {
   const criteria = request.task.acceptanceCriteria.map((criterion) => ({
@@ -22,6 +22,16 @@ export function buildWorkerPrompt(request: TaskExecutionRequest): string {
     kind: criterion.kind,
     description: criterion.description,
     value: criterion.value,
+  }));
+  const dependencies = request.dependencyContext.map((dependency) => ({
+    taskId: dependency.task.id,
+    title: dependency.task.title,
+    output: dependency.attempt.workerOutput,
+    artifacts: dependency.artifacts.map((artifact) => ({
+      type: artifact.type,
+      sourcePath: artifact.sourcePath,
+      contentHash: artifact.contentHash,
+    })),
   }));
   return [
     "You are executing one bounded task inside a MOSAIC coordination session.",
@@ -31,13 +41,18 @@ export function buildWorkerPrompt(request: TaskExecutionRequest): string {
     "Only report artifact paths that you actually created or changed.",
     "",
     "Session task:",
-    truncate(request.session.userTask, 15_000),
+    truncate(request.session.userTask, 12_000),
     "",
     `Task: ${request.task.title}`,
-    truncate(request.task.instructions, 10_000),
+    truncate(request.task.instructions, 8_000),
+    "",
+    "Verified dependency context:",
+    dependencies.length
+      ? truncate(JSON.stringify(dependencies), 12_000)
+      : "No dependencies.",
     "",
     "Acceptance criteria:",
-    truncate(JSON.stringify(criteria), 12_000),
+    truncate(JSON.stringify(criteria), 8_000),
   ].join("\n");
 }
 
