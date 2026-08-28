@@ -1,4 +1,13 @@
-import type { Agent, AgentRun, Message, SystemInfo } from "./types";
+import type {
+  Agent,
+  AgentRun,
+  CoordinationAttempt,
+  CoordinationEvent,
+  CoordinationSession,
+  CoordinationTask,
+  Message,
+  SystemInfo,
+} from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -78,4 +87,38 @@ export const api = {
       },
     ),
   run: (id: string) => request<{ run: AgentRun }>("/api/runs/" + id),
+  coordinationSessions: () =>
+    request<{ sessions: CoordinationSession[] }>("/api/coordination/sessions"),
+  createCoordinationSession: (body: {
+    userTask: string;
+    participantAgentIds: string[];
+  }) =>
+    request<{ session: CoordinationSession; tasks: CoordinationTask[] }>(
+      "/api/coordination/sessions",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  coordinationSession: (id: string) =>
+    request<{ session: CoordinationSession }>(`/api/coordination/sessions/${id}`),
+  startCoordinationSession: (id: string) =>
+    request<{ session: CoordinationSession }>(
+      `/api/coordination/sessions/${id}/start`,
+      { method: "POST" },
+    ),
+  stopCoordinationSession: (id: string) =>
+    request<{ session: CoordinationSession }>(
+      `/api/coordination/sessions/${id}/stop`,
+      { method: "POST" },
+    ),
+  coordinationTasks: (id: string) =>
+    request<{ tasks: CoordinationTask[] }>(
+      `/api/coordination/sessions/${id}/tasks`,
+    ),
+  coordinationAttempts: (id: string) =>
+    request<{ attempts: CoordinationAttempt[] }>(
+      `/api/coordination/sessions/${id}/attempts`,
+    ),
+  coordinationEvents: (id: string) =>
+    request<{ events: CoordinationEvent[] }>(
+      `/api/coordination/sessions/${id}/events`,
+    ),
 };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, setAuthToken } from "./api";
 import type { Agent, AgentRun, Message, SystemInfo } from "./types";
+import { CoordinationWorkspace } from "./components/coordination/CoordinationWorkspace";
 
 const starterPrompts = [
   "Create a small TypeScript CLI that prints a weather summary from sample JSON.",
@@ -36,6 +37,7 @@ function Spinner() {
 }
 
 export default function App() {
+  const [activeView, setActiveView] = useState<"agents" | "coordination">("agents");
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -140,6 +142,7 @@ export default function App() {
     try {
       const { agent } = await api.createAgent(form);
       await refreshAgents();
+      setActiveView("agents");
       setSelectedId(agent.id);
       setShowCreate(false);
       setForm(emptyForm);
@@ -324,11 +327,23 @@ export default function App() {
         <button
           className="button button-primary create-button"
           onClick={() => {
+            setActiveView("agents");
             setForm(emptyForm);
             setShowCreate(true);
           }}
         >
           <span>＋</span> Create Agent
+        </button>
+
+        <button
+          className={"coordination-nav " + (activeView === "coordination" ? "selected" : "")}
+          onClick={() => setActiveView("coordination")}
+        >
+          <span>M</span>
+          <div>
+            <strong>MOSAIC</strong>
+            <small>Coordination foundation</small>
+          </div>
         </button>
 
         <div className="sidebar-label">
@@ -340,7 +355,10 @@ export default function App() {
             <button
               className={"agent-card " + (agent.id === selectedId ? "selected" : "")}
               key={agent.id}
-              onClick={() => setSelectedId(agent.id)}
+              onClick={() => {
+                setActiveView("agents");
+                setSelectedId(agent.id);
+              }}
             >
               <div className="agent-avatar">{agent.name.slice(0, 1).toUpperCase()}</div>
               <div className="agent-card-copy">
@@ -369,6 +387,10 @@ export default function App() {
       </aside>
 
       <main className="main">
+        {activeView === "coordination" ? (
+          <CoordinationWorkspace agents={agents} />
+        ) : (
+          <>
         {!system?.arkConfigured || !system?.codexAvailable ? (
           <div className="config-banner">
             <span>!</span>
@@ -592,6 +614,7 @@ export default function App() {
             <button
               className="button button-primary"
               onClick={() => {
+                setActiveView("agents");
                 setForm(emptyForm);
                 setShowCreate(true);
               }}
@@ -599,6 +622,8 @@ export default function App() {
               Create your first Agent
             </button>
           </div>
+        )}
+          </>
         )}
       </main>
 
