@@ -1,0 +1,67 @@
+import type {
+  CoordinationArtifact,
+  CoordinationEvent,
+  CoordinationSession,
+  FailureClass,
+  TaskAttempt,
+  TaskNode,
+  WorkerOutput,
+} from "./contracts.js";
+
+export interface TaskExecutionRequest {
+  session: CoordinationSession;
+  task: TaskNode;
+  attempt: TaskAttempt;
+}
+
+export type TaskExecutionResult =
+  | {
+      status: "succeeded";
+      output: WorkerOutput;
+      runId?: string;
+    }
+  | {
+      status: "failed";
+      failureClass: FailureClass;
+      error: string;
+      runId?: string;
+    };
+
+/** Developer B implements this port with the existing AgentService Run path. */
+export interface CoordinationExecutor {
+  execute(
+    request: TaskExecutionRequest,
+    signal?: AbortSignal,
+  ): Promise<TaskExecutionResult>;
+  cancel(attemptId: string): Promise<boolean>;
+}
+
+export interface VerificationRequest {
+  session: CoordinationSession;
+  task: TaskNode;
+  attempt: TaskAttempt;
+  artifacts: CoordinationArtifact[];
+  output: WorkerOutput;
+}
+
+export type VerificationResult =
+  | { status: "accepted"; evidence: string[] }
+  | { status: "rejected"; evidence: string[]; failureClass: FailureClass };
+
+/** Developer B implements mechanical and optional semantic verification here. */
+export interface CoordinationVerifier {
+  verify(request: VerificationRequest): Promise<VerificationResult>;
+}
+
+/** Developer C owns the bounded event store behind this event sink. */
+export interface CoordinationEventSink {
+  append(event: CoordinationEvent): Promise<void>;
+}
+
+export interface CoordinationClock {
+  now(): string;
+}
+
+export interface CoordinationIdGenerator {
+  next(): string;
+}
