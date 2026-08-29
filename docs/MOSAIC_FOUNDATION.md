@@ -1,7 +1,9 @@
 # MOSAIC Foundation Handout
 
 This is the shared starting point for the three MOSAIC workstreams. The product
-requirements remain in `docs/track1_handouts/`.
+requirements remain in `docs/track1_handouts/`. The frontend information
+architecture and backend data requests are fixed separately in
+[`MOSAIC_UI_STRUCTURE.md`](MOSAIC_UI_STRUCTURE.md).
 
 ## Implemented foundation
 

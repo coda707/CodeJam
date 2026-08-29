@@ -250,6 +250,7 @@ With the application running, verify the MOSAIC browser/API path with
 - [Deployment](docs/DEPLOYMENT.md)
 - [Hackathon extension guide](docs/HACKATHON_EXTENSION_GUIDE.md)
 - [MOSAIC foundation handout](docs/MOSAIC_FOUNDATION.md)
+- [MOSAIC UI structure](docs/MOSAIC_UI_STRUCTURE.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 
