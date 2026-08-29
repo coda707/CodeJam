@@ -44,7 +44,8 @@ export default function App() {
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [form, setForm] = useState(emptyForm);
+  const [createForm, setCreateForm] = useState(emptyForm);
+  const [settingsForm, setSettingsForm] = useState(emptyForm);
   const [prompt, setPrompt] = useState("");
   const [activeRun, setActiveRun] = useState<AgentRun | null>(null);
   const [busy, setBusy] = useState(false);
@@ -123,7 +124,7 @@ export default function App() {
 
   useEffect(() => {
     if (selected) {
-      setForm({
+      setSettingsForm({
         name: selected.name,
         description: selected.description,
         instructions: selected.instructions,
@@ -140,12 +141,12 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      const { agent } = await api.createAgent(form);
+      const { agent } = await api.createAgent(createForm);
       await refreshAgents();
       setActiveView("agents");
       setSelectedId(agent.id);
       setShowCreate(false);
-      setForm(emptyForm);
+      setCreateForm(emptyForm);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason));
     } finally {
@@ -159,7 +160,7 @@ export default function App() {
     setBusy(true);
     setError(null);
     try {
-      await api.updateAgent(selected.id, form);
+      await api.updateAgent(selected.id, settingsForm);
       await refreshAgents();
       setShowSettings(false);
     } catch (reason) {
@@ -328,7 +329,7 @@ export default function App() {
           className="button button-primary create-button"
           onClick={() => {
             setActiveView("agents");
-            setForm(emptyForm);
+            setCreateForm(emptyForm);
             setShowCreate(true);
           }}
         >
@@ -465,8 +466,10 @@ export default function App() {
                   <label>
                     Name
                     <input
-                      value={form.name}
-                      onChange={(event) => setForm({ ...form, name: event.target.value })}
+                      value={settingsForm.name}
+                      onChange={(event) =>
+                        setSettingsForm({ ...settingsForm, name: event.target.value })
+                      }
                       required
                       maxLength={80}
                     />
@@ -474,9 +477,12 @@ export default function App() {
                   <label>
                     Description
                     <input
-                      value={form.description}
+                      value={settingsForm.description}
                       onChange={(event) =>
-                        setForm({ ...form, description: event.target.value })
+                        setSettingsForm({
+                          ...settingsForm,
+                          description: event.target.value,
+                        })
                       }
                       maxLength={500}
                     />
@@ -485,9 +491,12 @@ export default function App() {
                 <label>
                   System instructions
                   <textarea
-                    value={form.instructions}
+                    value={settingsForm.instructions}
                     onChange={(event) =>
-                      setForm({ ...form, instructions: event.target.value })
+                      setSettingsForm({
+                        ...settingsForm,
+                        instructions: event.target.value,
+                      })
                     }
                     rows={5}
                     maxLength={10_000}
@@ -618,7 +627,7 @@ export default function App() {
               className="button button-primary"
               onClick={() => {
                 setActiveView("agents");
-                setForm(emptyForm);
+                setCreateForm(emptyForm);
                 setShowCreate(true);
               }}
             >
@@ -650,8 +659,10 @@ export default function App() {
               <input
                 autoFocus
                 placeholder="Frontend Builder"
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
+                value={createForm.name}
+                onChange={(event) =>
+                  setCreateForm({ ...createForm, name: event.target.value })
+                }
                 required
                 maxLength={80}
               />
@@ -660,9 +671,9 @@ export default function App() {
               Description
               <input
                 placeholder="Builds polished React prototypes"
-                value={form.description}
+                value={createForm.description}
                 onChange={(event) =>
-                  setForm({ ...form, description: event.target.value })
+                  setCreateForm({ ...createForm, description: event.target.value })
                 }
                 maxLength={500}
               />
@@ -670,9 +681,9 @@ export default function App() {
             <label>
               Instructions
               <textarea
-                value={form.instructions}
+                value={createForm.instructions}
                 onChange={(event) =>
-                  setForm({ ...form, instructions: event.target.value })
+                  setCreateForm({ ...createForm, instructions: event.target.value })
                 }
                 rows={6}
                 maxLength={10_000}
