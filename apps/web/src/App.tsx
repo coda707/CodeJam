@@ -53,6 +53,8 @@ export default function App() {
   const [authRequired, setAuthRequired] = useState<boolean | null>(null);
   const [authInput, setAuthInput] = useState("");
   const messageEnd = useRef<HTMLDivElement>(null);
+  const createDialogRef = useRef<HTMLFormElement>(null);
+  const createTriggerRef = useRef<HTMLButtonElement | null>(null);
   const selectedIdRef = useRef<string | null>(null);
   const mountedRef = useRef(true);
   const pollingRunIds = useRef(new Set<string>());
@@ -62,6 +64,19 @@ export default function App() {
     () => agents.find((agent) => agent.id === selectedId) ?? null,
     [agents, selectedId],
   );
+
+  const openCreate = (event: React.MouseEvent<HTMLButtonElement>) => {
+    createTriggerRef.current = event.currentTarget;
+    setActiveView("agents");
+    setShowSettings(false);
+    setCreateForm(emptyForm);
+    setShowCreate(true);
+  };
+
+  const closeCreate = useCallback(() => {
+    setShowCreate(false);
+    window.requestAnimationFrame(() => createTriggerRef.current?.focus());
+  }, []);
 
   const refreshAgents = useCallback(async () => {
     const { agents: next } = await api.listAgents();
@@ -133,7 +148,41 @@ export default function App() {
   }, [selected]);
 
   useEffect(() => {
-    messageEnd.current?.scrollIntoView({ behavior: "smooth" });
+    if (!showCreate) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCreate();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        createDialogRef.current?.querySelectorAll<HTMLElement>(
+          "button:not([disabled]), input:not([disabled]), textarea:not([disabled])",
+        ) ?? [],
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeCreate, showCreate]);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    messageEnd.current?.scrollIntoView({
+      behavior: reducedMotion ? "auto" : "smooth",
+    });
   }, [messages, activeRun]);
 
   const createAgent = async (event: React.FormEvent) => {
@@ -327,17 +376,18 @@ export default function App() {
 
         <button
           className="button button-primary create-button"
-          onClick={() => {
-            setActiveView("agents");
-            setCreateForm(emptyForm);
-            setShowCreate(true);
-          }}
+          aria-haspopup="dialog"
+          aria-label="Create Agent"
+          onClick={openCreate}
         >
-          <span>＋</span> Create Agent
+          <span aria-hidden="true">＋</span>
+          <span className="create-button-label">Create Agent</span>
         </button>
 
         <button
           className={"coordination-nav " + (activeView === "coordination" ? "selected" : "")}
+          aria-current={activeView === "coordination" ? "page" : undefined}
+          aria-label="MOSAIC coordination"
           onClick={() => setActiveView("coordination")}
         >
           <span>M</span>
@@ -351,11 +401,20 @@ export default function App() {
           <span>Your Agents</span>
           <span>{agents.length}</span>
         </div>
-        <nav className="agent-list">
+        <nav className="agent-list" aria-label="Agents">
           {agents.map((agent) => (
             <button
-              className={"agent-card " + (agent.id === selectedId ? "selected" : "")}
+              className={
+                "agent-card " +
+                (activeView === "agents" && agent.id === selectedId ? "selected" : "")
+              }
               key={agent.id}
+              aria-current={
+                activeView === "agents" && agent.id === selectedId
+                  ? "page"
+                  : undefined
+              }
+              aria-label={`${agent.name}, ${agent.status}`}
               onClick={() => {
                 setActiveView("agents");
                 setSelectedId(agent.id);
@@ -414,7 +473,13 @@ export default function App() {
         {error && (
           <div className="error-banner" role="alert">
             <span>{error}</span>
-            <button onClick={() => setError(null)}>×</button>
+            <button
+              className="icon-button"
+              aria-label="Dismiss error"
+              onClick={() => setError(null)}
+            >
+              ×
+            </button>
           </div>
         )}
 
@@ -433,6 +498,8 @@ export default function App() {
                   className="button button-ghost"
                   onClick={() => setShowSettings((value) => !value)}
                   disabled={busy || selected.status === "busy"}
+                  aria-expanded={showSettings}
+                  aria-controls="agent-settings"
                 >
                   Settings
                 </button>
@@ -454,13 +521,24 @@ export default function App() {
             </header>
 
             {showSettings && (
-              <form className="settings-panel" onSubmit={saveAgent}>
+              <form
+                id="agent-settings"
+                className="settings-panel"
+                onSubmit={saveAgent}
+              >
                 <div className="settings-title">
                   <div>
                     <span className="eyebrow">Agent configuration</span>
                     <h2>Instructions and identity</h2>
                   </div>
-                  <button type="button" onClick={() => setShowSettings(false)}>×</button>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    aria-label="Close settings"
+                    onClick={() => setShowSettings(false)}
+                  >
+                    ×
+                  </button>
                 </div>
                 <div className="form-grid">
                   <label>
@@ -625,11 +703,8 @@ export default function App() {
             <p>Create a workspace, give Codex a job, and continue the conversation here.</p>
             <button
               className="button button-primary"
-              onClick={() => {
-                setActiveView("agents");
-                setCreateForm(emptyForm);
-                setShowCreate(true);
-              }}
+              aria-haspopup="dialog"
+              onClick={openCreate}
             >
               Create your first Agent
             </button>
@@ -640,19 +715,33 @@ export default function App() {
       </main>
 
       {showCreate && (
-        <div className="modal-backdrop" onMouseDown={() => setShowCreate(false)}>
+        <div className="modal-backdrop" onMouseDown={closeCreate}>
           <form
+            ref={createDialogRef}
             className="modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-agent-title"
+            aria-describedby="create-agent-description"
             onSubmit={createAgent}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <div className="modal-heading">
               <div>
                 <span className="eyebrow">New workspace</span>
-                <h2>Create an Agent</h2>
-                <p>Each Agent gets a persistent folder and a resumable Codex session.</p>
+                <h2 id="create-agent-title">Create an Agent</h2>
+                <p id="create-agent-description">
+                  Each Agent gets a persistent folder and a resumable Codex session.
+                </p>
               </div>
-              <button type="button" onClick={() => setShowCreate(false)}>×</button>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close Create Agent dialog"
+                onClick={closeCreate}
+              >
+                ×
+              </button>
             </div>
             <label>
               Name
@@ -693,7 +782,7 @@ export default function App() {
               <button
                 type="button"
                 className="button button-ghost"
-                onClick={() => setShowCreate(false)}
+                onClick={closeCreate}
               >
                 Cancel
               </button>

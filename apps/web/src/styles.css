@@ -22,7 +22,7 @@
 
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 0;
   min-height: 100vh;
 }
 
@@ -82,6 +82,11 @@ textarea {
 
 button {
   color: inherit;
+}
+
+button:focus-visible {
+  outline: 3px solid #8a78e8;
+  outline-offset: 2px;
 }
 
 .app-shell {
@@ -197,6 +202,11 @@ button {
 .create-button span {
   font-size: 19px;
   font-weight: 400;
+}
+
+.create-button .create-button-label {
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .sidebar-label {
@@ -335,14 +345,14 @@ button {
 
 .runtime-card > span:last-child {
   color: #85857e;
-  font-size: 9px;
+  font-size: 10px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .eyebrow {
   color: #898982;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
@@ -412,6 +422,16 @@ button {
   cursor: pointer;
 }
 
+.icon-button {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 10px;
+}
+
 .agent-header {
   max-width: 1180px;
   margin: 0 auto 18px;
@@ -434,7 +454,12 @@ button {
 .header-title-row {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.agent-header > div:first-child {
+  min-width: 0;
 }
 
 .agent-header h1 {
@@ -448,6 +473,11 @@ button {
   font-size: 12px;
 }
 
+.agent-header h1,
+.agent-header p {
+  overflow-wrap: anywhere;
+}
+
 .header-actions {
   display: flex;
   gap: 7px;
@@ -459,7 +489,7 @@ button {
   align-items: center;
   gap: 6px;
   padding: 4px 9px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -509,6 +539,11 @@ button {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 12px;
+}
+
+.settings-title > div {
+  min-width: 0;
 }
 
 .settings-title h2 {
@@ -581,10 +616,16 @@ textarea:focus {
 }
 
 .panel-footer code {
-  font-size: 9px;
+  min-width: 0;
+  font-size: 10px;
   color: #8a8a83;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-footer .button {
+  flex: 0 0 auto;
 }
 
 .playground {
@@ -613,7 +654,7 @@ textarea:focus {
 
 .session-info {
   color: #777870;
-  font-size: 9px;
+  font-size: 10px;
   border: 1px solid #e0ded6;
   border-radius: 999px;
   padding: 5px 9px;
@@ -759,7 +800,7 @@ textarea:focus {
 
 .message-meta span {
   color: #96968f;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .message-body {
@@ -851,7 +892,7 @@ textarea:focus {
 
 .composer-footer > span {
   color: #999992;
-  font-size: 8px;
+  font-size: 10px;
 }
 
 .send-button {
@@ -919,11 +960,19 @@ textarea:focus {
 
 .modal {
   width: min(560px, 100%);
+  max-height: calc(100vh - 44px);
+  max-height: calc(100dvh - 44px);
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 18px;
   background: var(--paper);
   padding: 25px;
   box-shadow: var(--shadow);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.modal-heading > div {
+  min-width: 0;
 }
 
 .modal-heading h2 {
@@ -935,6 +984,7 @@ textarea:focus {
   color: var(--muted);
   margin: 0 0 20px;
   font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .modal > label {
@@ -975,8 +1025,8 @@ textarea:focus {
   }
 
   .brand > div:last-child,
-  .create-button:not(:focus) {
-    font-size: 0;
+  .create-button .create-button-label {
+    display: none;
   }
 
   .create-button {
@@ -986,6 +1036,10 @@ textarea:focus {
 
   .create-button span {
     font-size: 22px;
+  }
+
+  .sidebar button:focus-visible {
+    outline-color: #c5baff;
   }
 
   .sidebar-label,
@@ -1024,6 +1078,7 @@ textarea:focus {
     flex-direction: row;
     align-items: center;
     gap: 10px;
+    overflow: hidden;
   }
 
   .brand {
@@ -1037,14 +1092,22 @@ textarea:focus {
 
   .create-button {
     width: 38px;
+    flex: 0 0 38px;
     min-height: 38px;
     margin-left: auto;
   }
 
   .agent-list {
-    max-width: 50vw;
+    min-width: 0;
+    flex: 1;
+    max-width: none;
     flex-direction: row;
     overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .agent-list::-webkit-scrollbar {
+    display: none;
   }
 
   .agent-card {
@@ -1072,7 +1135,7 @@ textarea:focus {
   }
 
   .playground {
-    height: calc(100vh - 224px);
+    height: calc(100dvh - 224px);
     min-height: 490px;
   }
 
@@ -1094,6 +1157,19 @@ textarea:focus {
 
   .form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .modal {
+    max-height: calc(100dvh - 24px);
+    padding: 18px;
+  }
+
+  .modal-footer {
+    flex-wrap: wrap;
   }
 }
 
@@ -1141,7 +1217,7 @@ textarea:focus {
 .coordination-nav small {
   margin-top: 2px;
   color: #8e8e87;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .coordination-workspace {
@@ -1180,7 +1256,7 @@ textarea:focus {
   padding: 7px 11px;
   color: #5b47bd;
   background: #efecff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -1232,6 +1308,7 @@ textarea:focus {
 }
 
 .participant-picker > label {
+  min-width: 0;
   min-height: 38px;
   margin: 5px 0;
   padding: 7px 9px;
@@ -1251,14 +1328,19 @@ textarea:focus {
 }
 
 .participant-picker small {
-  color: #999991;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   text-transform: uppercase;
+}
+
+.participant-picker span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .participant-picker p,
 .coordination-empty {
-  color: #8b8b84;
+  color: #666760;
   font-size: 10px;
   line-height: 1.5;
 }
@@ -1272,7 +1354,7 @@ textarea:focus {
   display: flex;
   justify-content: space-between;
   color: #8c8c85;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -1310,13 +1392,13 @@ textarea:focus {
 
 .coordination-session-list strong {
   color: #4b4c47;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .coordination-session-list span {
   margin-top: 4px;
-  color: #8d8d86;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -1332,6 +1414,10 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+}
+
+.session-summary > div:first-child {
+  min-width: 0;
 }
 
 .session-summary h2 {
@@ -1351,7 +1437,7 @@ textarea:focus {
   padding: 4px 8px;
   color: #777870;
   background: #edebe5;
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1364,11 +1450,12 @@ textarea:focus {
 }
 
 .coordination-status {
+  flex: 0 0 auto;
   border-radius: 999px;
   padding: 6px 9px;
   color: #6150bd;
   background: #ebe7fd;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1431,8 +1518,8 @@ textarea:focus {
 
 .metrics-grid span {
   margin-top: 4px;
-  color: #8b8b84;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -1450,7 +1537,7 @@ textarea:focus {
 .evidence-grid h3 {
   margin: 0 0 8px;
   color: #74756e;
-  font-size: 9px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -1489,8 +1576,8 @@ textarea:focus {
   display: block;
   margin: 5px 0 0;
   overflow-wrap: anywhere;
-  color: #8b8b84;
-  font-size: 8px;
+  color: #666760;
+  font-size: 11px;
   line-height: 1.45;
 }
 
@@ -1500,7 +1587,7 @@ textarea:focus {
   border-radius: 999px;
   color: #6954c6;
   background: #ebe7fd;
-  font-size: 7px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -1523,15 +1610,21 @@ textarea:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.panel-heading > div {
+  min-width: 0;
 }
 
 .panel-heading h2 {
   margin-bottom: 12px;
+  overflow-wrap: anywhere;
 }
 
 .panel-heading > span {
-  color: #91918a;
-  font-size: 9px;
+  color: #666760;
+  font-size: 10px;
 }
 
 .foundation-graph {
@@ -1563,8 +1656,8 @@ textarea:focus {
 .task-graph-stage > span {
   display: block;
   margin: 0 0 7px 2px;
-  color: #8b8b84;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1633,13 +1726,13 @@ textarea:focus {
   border-radius: 7px;
   color: #fff;
   background: #6c58cf;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 800;
 }
 
 .task-node-topline strong {
-  color: #85857e;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -1649,6 +1742,7 @@ textarea:focus {
   color: #3f403b;
   font-size: 12px;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .task-node-capabilities,
@@ -1659,8 +1753,8 @@ textarea:focus {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #8b8b84;
-  font-size: 9px;
+  color: #666760;
+  font-size: 10px;
 }
 
 .task-node-agent {
@@ -1673,6 +1767,7 @@ textarea:focus {
   margin-top: 5px;
   white-space: normal;
   line-height: 1.4;
+  overflow-wrap: anywhere;
 }
 
 .graph-edge {
@@ -1698,7 +1793,7 @@ textarea:focus {
   border-radius: 9px;
   color: #954640;
   background: #fff1ef;
-  font-size: 9px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -1706,13 +1801,19 @@ textarea:focus {
   margin-bottom: 8px;
 }
 
+.task-inspector,
+.task-inspector * {
+  min-width: 0;
+}
+
 .task-inspector-empty,
 .task-inspector-section > p,
 .task-inspector-list > p {
   margin: 0;
-  color: #8b8b84;
-  font-size: 9px;
+  color: #666760;
+  font-size: 11px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
 }
 
 .task-inspector-identity {
@@ -1732,8 +1833,8 @@ textarea:focus {
 
 .task-inspector dt,
 .task-inspector-section h3 {
-  color: #85857e;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.07em;
@@ -1743,7 +1844,7 @@ textarea:focus {
   min-width: 0;
   margin: 4px 0 0;
   color: #4d4e48;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .task-inspector dd strong,
@@ -1755,7 +1856,7 @@ textarea:focus {
   margin-top: 3px;
   overflow-wrap: anywhere;
   color: #6e6f68;
-  font-size: 8px;
+  font-size: 10px;
   white-space: normal;
 }
 
@@ -1794,13 +1895,12 @@ textarea:focus {
 .task-inspector-links button:hover,
 .task-inspector-links button:focus-visible {
   border-color: #7664d5;
-  outline: none;
 }
 
 .task-inspector-links strong,
 .task-inspector-missing strong {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .task-inspector-list > article > div:first-child {
@@ -1808,16 +1908,17 @@ textarea:focus {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .task-inspector-list > article > div:first-child strong {
   color: #4d4e48;
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .task-inspector-list > article > div:first-child span {
-  color: #85857e;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   text-transform: uppercase;
 }
 
@@ -1834,7 +1935,7 @@ textarea:focus {
 .task-inspector-error {
   margin: 8px 0 0;
   color: #a94444;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.5;
 }
 
@@ -1850,8 +1951,9 @@ textarea:focus {
 .worker-output ul {
   margin: 0;
   color: #55564f;
-  font-size: 8px;
+  font-size: 11px;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .worker-output p,
@@ -1913,8 +2015,8 @@ textarea:focus {
 }
 
 .coordination-timeline time {
-  color: #989891;
-  font-size: 8px;
+  color: #666760;
+  font-size: 10px;
   line-height: 15px;
 }
 
@@ -1925,19 +2027,20 @@ textarea:focus {
 
 .coordination-timeline strong {
   color: #4f504a;
-  font-size: 10px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .coordination-timeline div > span {
   margin-top: 3px;
   overflow-wrap: anywhere;
-  color: #8b8b84;
-  font-size: 8px;
+  color: #666760;
+  font-size: 11px;
   line-height: 1.45;
 }
 
 .coordination-empty-state {
-  min-height: 570px;
+  min-height: clamp(320px, calc(100dvh - 230px), 570px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1971,7 +2074,7 @@ textarea:focus {
   margin-top: 16px;
 }
 
-@media (max-width: 1000px) {
+@media (max-width: 1200px) {
   .coordination-layout {
     grid-template-columns: 240px minmax(0, 1fr);
   }
@@ -2007,21 +2110,7 @@ textarea:focus {
   }
 }
 
-@media (max-width: 900px) {
-  .coordination-nav {
-    width: 42px;
-    margin: 0;
-    padding: 4px;
-  }
-
-  .coordination-nav > span {
-    width: 32px;
-  }
-
-  .coordination-nav > div {
-    display: none;
-  }
-
+@media (max-width: 1120px) {
   .coordination-heading {
     align-items: flex-start;
     flex-direction: column;
@@ -2045,6 +2134,23 @@ textarea:focus {
     width: 100%;
     flex-wrap: wrap;
   }
+}
+
+@media (max-width: 900px) {
+  .coordination-nav {
+    width: 42px;
+    flex: 0 0 42px;
+    margin: 0;
+    padding: 4px;
+  }
+
+  .coordination-nav > span {
+    width: 32px;
+  }
+
+  .coordination-nav > div {
+    display: none;
+  }
 
   .evidence-grid {
     grid-template-columns: 1fr;
@@ -2052,5 +2158,21 @@ textarea:focus {
 
   .metrics-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .button:hover,
+  .prompt-grid button:hover {
+    transform: none;
   }
 }

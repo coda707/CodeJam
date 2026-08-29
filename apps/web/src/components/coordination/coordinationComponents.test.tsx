@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type {
   CoordinationArtifact,
   CoordinationAttempt,
+  CoordinationSession,
   CoordinationTask,
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
+import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
 import { TaskInspector } from "./TaskInspector";
 
@@ -65,6 +67,44 @@ describe("coordination components", () => {
     expect(markup).toContain('aria-pressed="true"');
     expect(markup).toContain("After: Task plan");
     expect(markup).toContain("2 nodes / 1 edges");
+  });
+
+  it("exposes the selected coordination Session to assistive technology", () => {
+    const session: CoordinationSession = {
+      id: "session-selected-id",
+      userTask: "Coordinate the delivery",
+      status: "planning",
+      topology: "sequential",
+      participantAgentIds: [],
+      rootTraceId: "trace-id",
+      budget: {
+        maxTasks: 4,
+        maxConcurrentTasks: 2,
+        maxAttemptsPerTask: 2,
+        maxAgentCalls: 8,
+        maxEvents: 100,
+      },
+      createdAt: timestamp,
+    };
+    const markup = renderToStaticMarkup(
+      <SessionRail
+        agents={[]}
+        sessions={[session]}
+        selectedId={session.id}
+        participantIds={[]}
+        userTask=""
+        busy={false}
+        loading={false}
+        usesRealAgents={false}
+        onUserTaskChange={() => undefined}
+        onToggleParticipant={() => undefined}
+        onCreate={() => undefined}
+        onSelect={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('aria-label="Coordination sessions"');
+    expect(markup).toContain('aria-current="page"');
   });
 
   it("renders complete evidence identifiers and verified WorkerOutput", () => {

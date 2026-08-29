@@ -86,11 +86,13 @@ export function SessionRail({
         <span>Sessions</span>
         <span>{sessions.length}</span>
       </div>
-      <div className="coordination-session-list">
+      <nav className="coordination-session-list" aria-label="Coordination sessions">
         {sessions.map((session) => (
           <button
+            type="button"
             key={session.id}
             className={session.id === selectedId ? "selected" : ""}
+            aria-current={session.id === selectedId ? "page" : undefined}
             onClick={() => onSelect(session.id)}
           >
             <strong>{session.userTask}</strong>
@@ -104,7 +106,7 @@ export function SessionRail({
             Create the first Session to see its DAG.
           </p>
         )}
-      </div>
+      </nav>
     </aside>
   );
 }
