@@ -19,11 +19,13 @@ import type {
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
 import { EventTimeline } from "./EventTimeline";
 import { EvidenceWorkspace } from "./EvidenceWorkspace";
+import { reconcileSelectedTaskId } from "./graphModel";
 import { MetricsSummary } from "./MetricsSummary";
 import { activeSessionStatuses } from "./presentation";
 import { SessionCommandBar } from "./SessionCommandBar";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
+import { TaskInspector } from "./TaskInspector";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 
 interface CoordinationWorkspaceProps {
@@ -43,6 +45,7 @@ export function CoordinationWorkspace({
   const [artifacts, setArtifacts] = useState<CoordinationArtifact[]>([]);
   const [metrics, setMetrics] = useState<CoordinationMetrics | null>(null);
   const [events, setEvents] = useState<CoordinationEvent[]>([]);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [userTask, setUserTask] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -144,6 +147,10 @@ export function CoordinationWorkspace({
     return () => window.clearInterval(timer);
   }, [refreshDetails, selectedId, session]);
 
+  useEffect(() => {
+    setSelectedTaskId((current) => reconcileSelectedTaskId(tasks, current));
+  }, [tasks]);
+
   const createSession = async (event: FormEvent) => {
     event.preventDefault();
     if (!userTask.trim()) return;
@@ -241,12 +248,23 @@ export function CoordinationWorkspace({
                 onStart={startSession}
                 onStop={stopSession}
               />
-              {metrics && <MetricsSummary metrics={metrics} />}
-              <TaskGraph
-                tasks={tasks}
-                agentNames={agentNames}
-                usesRealAgents={usesRealAgents}
-              />
+              <div className="task-workspace">
+                <TaskGraph
+                  tasks={tasks}
+                  agentNames={agentNames}
+                  usesRealAgents={usesRealAgents}
+                  selectedTaskId={selectedTaskId}
+                  onSelectTask={setSelectedTaskId}
+                />
+                <TaskInspector
+                  taskId={selectedTaskId}
+                  tasks={tasks}
+                  attempts={attempts}
+                  artifacts={artifacts}
+                  agentNames={agentNames}
+                  onSelectTask={setSelectedTaskId}
+                />
+              </div>
               <EvidenceWorkspace
                 attempts={attempts}
                 artifacts={artifacts}
@@ -255,6 +273,7 @@ export function CoordinationWorkspace({
                 executorMode={executorMode}
               />
               <EventTimeline events={events} />
+              {metrics && <MetricsSummary metrics={metrics} />}
             </>
           ) : (
             <CoordinationEmptyState />

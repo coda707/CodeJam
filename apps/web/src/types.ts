@@ -113,6 +113,13 @@ export interface CoordinationTask {
   updatedAt: string;
 }
 
+export interface CoordinationWorkerOutput {
+  summary: string;
+  artifactPaths: string[];
+  evidence: string[];
+  unresolvedIssues: string[];
+}
+
 export interface CoordinationAttempt {
   id: string;
   sessionId: string;
@@ -131,6 +138,7 @@ export interface CoordinationAttempt {
     cachedInputTokens?: number;
     outputTokens?: number;
   };
+  workerOutput?: CoordinationWorkerOutput;
 }
 
 export interface CoordinationArtifact {
