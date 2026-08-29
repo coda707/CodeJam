@@ -3,6 +3,7 @@ import {
   plannerOutputSchema,
   type PlannerOutput,
 } from "./contracts.js";
+import { HeuristicCollaborationGate } from "./collaboration-gate.js";
 import type {
   CoordinationPlanner,
   CoordinationPlanningRequest,
@@ -93,5 +94,159 @@ export function createFoundationPlan(userTask: string): PlannerOutput {
 export class FoundationCoordinationPlanner implements CoordinationPlanner {
   async plan(request: CoordinationPlanningRequest): Promise<PlannerOutput> {
     return createFoundationPlan(request.userTask);
+  }
+}
+
+function heuristicTask(
+  key: string,
+  title: string,
+  instructions: string,
+  dependencies: string[],
+  requiredCapabilities: string[],
+) {
+  return {
+    key,
+    title,
+    instructions,
+    dependencies,
+    requiredCapabilities,
+    acceptanceCriteria: [
+      {
+        id: `${key}-output`,
+        kind: "artifact" as const,
+        description: "Structured WorkerOutput is produced",
+        value: "worker-output",
+      },
+    ],
+  };
+}
+
+/**
+ * LLM-free planner driven by the {@link HeuristicCollaborationGate}. It turns
+ * the gate's topology decision into a concrete DAG whose acceptance criteria
+ * are all `artifact`/`worker-output`, so the deterministic Fake Executor path
+ * still verifies cleanly. `file_exists`/`command` criteria belong to the real
+ * Agent demo path and are intentionally not emitted here.
+ */
+export class HeuristicCoordinationPlanner implements CoordinationPlanner {
+  private readonly gate = new HeuristicCollaborationGate();
+
+  async plan(request: CoordinationPlanningRequest): Promise<PlannerOutput> {
+    const taskContext =
+      request.userTask.length > 9_000
+        ? request.userTask.slice(0, 8_997) + "..."
+        : request.userTask;
+    const decision = this.gate.decide(
+      request.userTask,
+      request.participantAgentIds.length,
+    );
+
+    switch (decision.topology) {
+      case "single":
+        return validatePlannerOutput({
+          topology: "single",
+          explanation: decision.explanation,
+          tasks: [
+            heuristicTask(
+              "deliver",
+              "Deliver the requested result",
+              `Produce a verified result for: ${taskContext}`,
+              [],
+              ["delivery"],
+            ),
+          ],
+        });
+      case "parallel":
+        return validatePlannerOutput({
+          topology: "parallel",
+          explanation: decision.explanation,
+          tasks: [
+            heuristicTask(
+              "analyze",
+              "Analyze requirements",
+              `Analyze the request and list the independent work items: ${taskContext}`,
+              [],
+              ["analysis"],
+            ),
+            heuristicTask(
+              "implement",
+              "Implement the core changes",
+              `Implement the core changes for: ${taskContext}`,
+              [],
+              ["delivery"],
+            ),
+            heuristicTask(
+              "document",
+              "Document the result",
+              `Document the completed work and its evidence: ${taskContext}`,
+              [],
+              ["reporting"],
+            ),
+          ],
+        });
+      case "dag":
+        return validatePlannerOutput({
+          topology: "dag",
+          explanation: decision.explanation,
+          tasks: [
+            heuristicTask(
+              "plan",
+              "Plan the requested work",
+              `Produce a bounded implementation plan for: ${taskContext}`,
+              [],
+              ["planning"],
+            ),
+            heuristicTask(
+              "implement",
+              "Implement the planned changes",
+              `Implement the plan for: ${taskContext}`,
+              ["plan"],
+              ["delivery"],
+            ),
+            heuristicTask(
+              "review",
+              "Review the implementation",
+              `Review the implementation and produce a verification report for: ${taskContext}`,
+              ["plan"],
+              ["review"],
+            ),
+            heuristicTask(
+              "verify",
+              "Verify and finalize",
+              `Verify the implementation and the review converge, then finalize: ${taskContext}`,
+              ["implement", "review"],
+              ["verification"],
+            ),
+          ],
+        });
+      default:
+        return validatePlannerOutput({
+          topology: "sequential",
+          explanation: decision.explanation,
+          tasks: [
+            heuristicTask(
+              "plan",
+              "Plan the requested work",
+              `Produce a bounded implementation plan for: ${taskContext}`,
+              [],
+              ["planning"],
+            ),
+            heuristicTask(
+              "deliver",
+              "Deliver the requested result",
+              `Use the verified plan to deliver: ${taskContext}`,
+              ["plan"],
+              ["delivery"],
+            ),
+            heuristicTask(
+              "verify",
+              "Verify the delivered result",
+              `Verify the delivered result for: ${taskContext}`,
+              ["deliver"],
+              ["verification"],
+            ),
+          ],
+        });
+    }
   }
 }

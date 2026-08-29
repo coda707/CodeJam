@@ -24,10 +24,23 @@ export interface CoordinationPlanner {
   ): Promise<PlannerOutput>;
 }
 
+export interface AgentDescriptor {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  status: "ready" | "busy" | "stopped" | "error";
+}
+
+export interface CoordinationAgentCatalog {
+  resolve(ids: string[]): AgentDescriptor[];
+}
+
 export interface CoordinationTeamBuilderRequest {
   userTask: string;
   plan: PlannerOutput;
   candidateAgentIds: string[];
+  candidates?: AgentDescriptor[];
 }
 
 export interface CoordinationTeamBuilder {
@@ -87,6 +100,20 @@ export type VerificationResult =
 
 export interface CoordinationVerifier {
   verify(request: VerificationRequest): Promise<VerificationResult>;
+}
+
+export interface CommandExecutionResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export interface CoordinationCommandRunner {
+  run(
+    command: string,
+    agentId: string,
+    timeoutMs?: number,
+  ): Promise<CommandExecutionResult>;
 }
 
 export type ArtifactCaptureResult =

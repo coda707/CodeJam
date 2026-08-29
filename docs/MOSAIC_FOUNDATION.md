@@ -92,17 +92,32 @@ npm run verify:mosaic
 For real Agent mode, set `COORDINATION_EXECUTOR=agent` and provide participant
 IDs through the UI or `MOSAIC_AGENT_IDS` for the verification script.
 
-## Intentional limits
+## Intentional limits → resolved in P0
 
-- The default Planner still returns the deterministic two-Task foundation DAG.
-- The default TeamBuilder uses participant order instead of capability scoring.
-- Ready Tasks are executed serially even though concurrency budgets are stored.
-- The default RecoveryPolicy stops after failure. Injected policies can retry,
-  reassign, or wait for approval, but approval and resume APIs are not present.
-- Accepted dependency evidence is supplied to downstream prompts, but file
-  promotion between isolated Agent workspaces is not present.
-- Command and test criteria do not yet execute allowlisted commands.
-- Coordination remains single-process on the existing JSON store.
+The limits below described the foundation handoff. The MOSAIC P0 implementation
+resolved them; the stronger implementations are wired in
+`apps/server/src/index.ts`, while `CoordinationService`'s in-code defaults stay
+on the foundation behavior so existing tests remain green.
+
+| Foundation limit | Resolved by |
+| --- | --- |
+| Deterministic two-Task DAG, no topology choice | `HeuristicCollaborationGate` + `HeuristicCoordinationPlanner` (`single` / `sequential` / `parallel` / `dag`) |
+| Participant-order assignment | `CapabilityTeamBuilder` (capability keyword scoring, ready-preferred) |
+| Serial execution despite stored budgets | Parallel graph scheduler with atomic leases (`computeReadyTasks`) |
+| Stop-only recovery, no approval APIs | `ClassificationRecoveryPolicy` (retry / reassign / request-approval / stop) + `POST …/approve` & `/reject` |
+| No allowlisted command execution | `MechanicalVerifier` optional command runner + allowlist (Agent mode) |
+| Artifact files stay inside the Agent workspace | `FileArtifactStore` captures files into the session artifact root with path/symlink/size guards + sha256 |
+
+The remaining, intentional limits are listed in
+[MOSAIC_ARCHITECTURE.md](MOSAIC_ARCHITECTURE.md#known-limitations) and
+[the README](../README.md#mosaic-middleware):
+
+- Coordination remains single-process on the shared JSON store.
+- The heuristic planner emits only `artifact`/`worker-output` criteria, so
+  allowlisted command verification runs only when a plan explicitly requests a
+  `command` criterion.
+- `manual_review` criteria are not yet semantically reviewed by an LLM.
+- Artifacts are captured only when an Agent actually reports `artifactPaths`.
 
 ## Reference policy
 

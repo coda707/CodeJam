@@ -4,6 +4,7 @@ import type { CoordinationService } from "./coordination-service.js";
 import { createCoordinationSessionInputSchema } from "./contracts.js";
 
 const sessionIdParams = z.strictObject({ id: z.string().uuid() });
+const approvalBody = z.strictObject({ reason: z.string().trim().min(1).max(2_000) });
 
 export function registerCoordinationRoutes(
   app: FastifyInstance,
@@ -33,6 +34,18 @@ export function registerCoordinationRoutes(
   app.post("/api/coordination/sessions/:id/stop", async (request) => {
     const { id } = sessionIdParams.parse(request.params);
     return { session: await service.stopSession(id) };
+  });
+
+  app.post("/api/coordination/sessions/:id/approve", async (request) => {
+    const { id } = sessionIdParams.parse(request.params);
+    const { reason } = approvalBody.parse(request.body);
+    return { session: await service.approveSession(id, reason) };
+  });
+
+  app.post("/api/coordination/sessions/:id/reject", async (request) => {
+    const { id } = sessionIdParams.parse(request.params);
+    const { reason } = approvalBody.parse(request.body);
+    return { session: await service.rejectSession(id, reason) };
   });
 
   app.get("/api/coordination/sessions/:id/tasks", async (request) => {

@@ -18,6 +18,9 @@ const envSchema = z.object({
   CODEX_MAX_OUTPUT_BYTES: z.coerce.number().int().min(65_536).default(2_097_152),
   RUNTIME_PROVIDER: z.enum(["local-process", "container"]).default("local-process"),
   COORDINATION_EXECUTOR: z.enum(["fake", "agent"]).default("fake"),
+  COORDINATION_DEMO_FAULT: z
+    .enum(["off", "transient", "timeout", "test_failure", "capability"])
+    .default("off"),
   CONTAINER_ENGINE: z.string().min(1).default("docker"),
   CONTAINER_RUNTIME_IMAGE: z.string().min(1).default("volc-agent-runtime:local"),
   CONTAINER_CPU_LIMIT: z.coerce.number().positive().default(2),
@@ -84,6 +87,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     codexMaxOutputBytes: env.CODEX_MAX_OUTPUT_BYTES,
     runtimeProvider: env.RUNTIME_PROVIDER,
     coordinationExecutor: env.COORDINATION_EXECUTOR,
+    coordinationDemoFault: env.COORDINATION_DEMO_FAULT,
     containerEngine: env.CONTAINER_ENGINE,
     containerRuntimeImage: env.CONTAINER_RUNTIME_IMAGE,
     containerCpuLimit: env.CONTAINER_CPU_LIMIT,

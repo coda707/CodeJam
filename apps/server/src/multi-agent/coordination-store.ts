@@ -126,6 +126,17 @@ export class CoordinationStore {
     });
   }
 
+  async mutateTasks(
+    sessionId: string,
+    mutation: (task: TaskNode) => void,
+  ): Promise<void> {
+    await this.store.mutate((database) => {
+      for (const task of database.coordinationTasks) {
+        if (task.sessionId === sessionId) mutation(task);
+      }
+    });
+  }
+
   async createAttempt(attempt: TaskAttempt): Promise<void> {
     await this.store.mutate((database) => {
       if (database.coordinationAttempts.some((item) => item.id === attempt.id)) {

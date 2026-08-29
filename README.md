@@ -205,6 +205,7 @@ cp deploy/volcengine/terraform.tfvars.example \
 | `APP_AUTH_TOKEN` | Empty on loopback | Shared demo token; use 24+ random characters remotely. |
 | `RUNTIME_PROVIDER` | `local-process` | `container` for disposable local Runtime containers. |
 | `COORDINATION_EXECUTOR` | `fake` | `agent` to execute MOSAIC Tasks through existing Agents. |
+| `COORDINATION_DEMO_FAULT` | `off` | `transient` / `timeout` / `test_failure` / `capability` for one-shot demo faults. |
 | `COORDINATION_ARTIFACT_ROOT` | Below `APP_DATA_DIR` | Session-scoped captured Artifact files. |
 | `CODEX_SANDBOX_MODE` | `workspace-write` | Codex inner sandbox mode. |
 | `CODEX_TIMEOUT_MS` | `600000` | Maximum duration of one turn. |
@@ -231,6 +232,73 @@ Deleting an Agent archives its workspace under `workspaces/.deleted/`.
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for component and extension
 boundaries.
 
+## MOSAIC middleware
+
+MOSAIC (Middleware for Orchestrated, Self-healing, Auditable, Intelligent
+Collaboration) is the team-designed middleware story for Track 1 "Agent
+Launchpad". The Starter Kit runs **one** Agent per Playground turn; MOSAIC
+coordinates **several** Agents through a shared, auditable plan.
+
+**Problem.** A single Agent is not enough when a request decomposes into
+independent work items, when a task fails and needs a bounded retry or a
+different Agent, or when a human must approve a risky step. The platform had no
+way to plan, assign, verify, and recover multi-Agent work.
+
+**Design.** LLMs provide semantics (planning, judging); deterministic
+TypeScript owns state, limits, leases, and recovery:
+
+- **Collaboration Gate + Planner** choose a topology
+  (`single` / `sequential` / `parallel` / `dag`) and emit a Zod-validated DAG.
+- **Capability-based team builder** assigns each Task to the best-matching
+  Agent by capability keywords, falling back to participant order.
+- **Parallel graph scheduler** runs ready Tasks concurrently up to a budget,
+  with atomic `pending → ready → leased` transitions (no double execution).
+- **Mechanical verifier** checks WorkerOutput and, in Agent mode, allowlisted
+  commands (`npm test`, `npm run build`, …) in the producer workspace.
+- **Classification recovery** maps a failure class to retry, reassign to a
+  different Agent, human approval, or stop — bounded by `maxAttemptsPerTask`.
+- **Safe artifact capture** writes files with path/symlink/size guards and
+  sha256 content hashing.
+- **Event + metrics projection** persists the whole chain for the timeline,
+  DAG, and verification views.
+
+See [docs/MOSAIC_ARCHITECTURE.md](docs/MOSAIC_ARCHITECTURE.md) for the one-page
+diagram, data flow, and trust boundaries.
+
+### Demo without Ark (Fake executor)
+
+No API key or container engine required — the Fake executor drives the full
+control-plane path:
+
+```bash
+npm install
+npm run dev                # server on :3000, web on :5173
+# open http://localhost:5173 → MOSAIC → create a session → Start
+```
+
+- `Build several independent modules` produces a **parallel** DAG.
+- To watch a failure auto-recover: restart with `COORDINATION_DEMO_FAULT=transient`
+  (PowerShell: `$env:COORDINATION_DEMO_FAULT = "transient"`), then run
+  `node scripts/demo-recovery.mjs`.
+- To watch human approval: restart with `COORDINATION_DEMO_FAULT=test_failure`,
+  then run `node scripts/demo-approval.mjs` (or Approve/Reject from the UI).
+
+### Demo with real Agents
+
+```bash
+cp .env.example .env        # fill ARK_API_KEY + ARK_MODEL, set COORDINATION_EXECUTOR=agent
+npm run dev -w @launchpad/server
+node scripts/integration-real-agents.mjs
+```
+
+### Known limitations
+
+- Coordination is single-process on the shared JSON store (no cross-process resume).
+- The default heuristic planner emits only `artifact`/`worker-output` criteria,
+  so allowlisted command verification runs only when a plan requests a `command`.
+- `manual_review` criteria are not yet semantically reviewed by an LLM.
+- Artifacts are captured only when an Agent actually reports `artifactPaths`.
+
 ## Validation
 
 ```bash
@@ -246,6 +314,7 @@ With the application running, verify the MOSAIC browser/API path with
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [MOSAIC architecture (one page)](docs/MOSAIC_ARCHITECTURE.md)
 - [Local POC](docs/LOCAL_POC.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Hackathon extension guide](docs/HACKATHON_EXTENSION_GUIDE.md)

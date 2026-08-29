@@ -198,6 +198,8 @@ export const coordinationEventTypeSchema = z.enum([
   "session.completed",
   "session.failed",
   "session.cancelled",
+  "session.approved",
+  "session.rejected",
   "plan.created",
   "plan.revised",
   "agent.selected",

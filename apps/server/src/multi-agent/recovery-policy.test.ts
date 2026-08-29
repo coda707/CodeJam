@@ -1,7 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import type { FailureClass } from "./contracts.js";
 import type { RecoveryPolicyRequest } from "./ports.js";
-import { validateRecoveryDecision } from "./recovery-policy.js";
+import {
+  ClassificationRecoveryPolicy,
+  validateRecoveryDecision,
+} from "./recovery-policy.js";
 
 const timestamp = "2026-08-29T00:00:00.000Z";
 
@@ -85,5 +89,64 @@ describe("recovery decision validation", () => {
         makeRequest(),
       ),
     ).toThrow(/unknown Agent/i);
+  });
+});
+
+function makeClassificationRequest(
+  errorClass: FailureClass,
+  availableAgentIds: string[],
+  attemptsCount = 1,
+): RecoveryPolicyRequest {
+  const base = makeRequest();
+  const agentId = availableAgentIds[0] ?? randomUUID();
+  base.failedAttempt.errorClass = errorClass;
+  base.failedAttempt.agentId = agentId;
+  base.session.budget.maxAttemptsPerTask = 2;
+  base.session.participantAgentIds = availableAgentIds;
+  base.availableAgentIds = availableAgentIds;
+  base.attempts = Array.from({ length: attemptsCount }, (_, index) => ({
+    ...base.failedAttempt,
+    id: index === 0 ? base.failedAttempt.id : randomUUID(),
+  }));
+  return base;
+}
+
+describe("ClassificationRecoveryPolicy", () => {
+  const policy = new ClassificationRecoveryPolicy();
+
+  it("retries a transient provider error", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("transient_provider_error", ["a"])),
+    ).resolves.toMatchObject({ action: "retry" });
+  });
+
+  it("reassigns a timeout to a different Agent", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("timeout", ["a", "b"])),
+    ).resolves.toMatchObject({ action: "reassign", nextAgentId: "b" });
+  });
+
+  it("retries a timeout when no alternative Agent exists", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("timeout", ["a"])),
+    ).resolves.toMatchObject({ action: "retry" });
+  });
+
+  it("requests approval for a test failure", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("test_failure", ["a"])),
+    ).resolves.toMatchObject({ action: "request_approval" });
+  });
+
+  it("stops on an unrecoverable failure class", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("unsafe_action", ["a"])),
+    ).resolves.toMatchObject({ action: "stop" });
+  });
+
+  it("stops when the Attempt budget is exhausted", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("transient_provider_error", ["a"], 2)),
+    ).resolves.toMatchObject({ action: "stop", reason: "Attempt budget exceeded" });
   });
 });

@@ -12,6 +12,7 @@ import {
   type TaskNode,
 } from "./contracts.js";
 import type {
+  CoordinationAgentCatalog,
   CoordinationArtifactRepository,
   CoordinationClock,
   CoordinationEventSink,
@@ -29,6 +30,7 @@ import {
   FoundationCoordinationPlanner,
   validatePlannerOutput,
 } from "./planner.js";
+import { computeReadyTasks } from "./graph-scheduler.js";
 import type { CoordinationStore } from "./coordination-store.js";
 import { NoopCoordinationArtifactRepository } from "./artifact-store.js";
 import { MechanicalCoordinationVerifier } from "./verifier.js";
@@ -53,12 +55,13 @@ export interface CoordinationServiceOptions {
   planner?: CoordinationPlanner;
   teamBuilder?: CoordinationTeamBuilder;
   recoveryPolicy?: CoordinationRecoveryPolicy;
+  catalog?: CoordinationAgentCatalog;
 }
 
 export class CoordinationService {
   private readonly activeSessions = new Map<string, Promise<void>>();
   private readonly abortControllers = new Map<string, AbortController>();
-  private readonly activeAttemptIds = new Map<string, string>();
+  private readonly activeAttemptIds = new Map<string, Set<string>>();
   private readonly clock: CoordinationClock;
   private readonly ids: CoordinationIdGenerator;
   private readonly artifacts: CoordinationArtifactRepository;
@@ -66,6 +69,7 @@ export class CoordinationService {
   private readonly planner: CoordinationPlanner;
   private readonly teamBuilder: CoordinationTeamBuilder;
   private readonly recoveryPolicy: CoordinationRecoveryPolicy;
+  private readonly catalog: CoordinationAgentCatalog | undefined;
 
   constructor(
     private readonly store: CoordinationStore,
@@ -81,6 +85,7 @@ export class CoordinationService {
     this.teamBuilder = options.teamBuilder ?? new ParticipantOrderTeamBuilder();
     this.recoveryPolicy =
       options.recoveryPolicy ?? new StopCoordinationRecoveryPolicy();
+    this.catalog = options.catalog;
   }
 
   async initialize(): Promise<void> {
@@ -149,11 +154,13 @@ export class CoordinationService {
         participantAgentIds: input.participantAgentIds,
       }),
     );
+    const candidates = this.catalog?.resolve(input.participantAgentIds);
     const team = validateTeamBuilderOutput(
       await this.teamBuilder.select({
         userTask: input.userTask,
         plan,
         candidateAgentIds: input.participantAgentIds,
+        ...(candidates ? { candidates } : {}),
       }),
       plan,
       input.participantAgentIds,
@@ -224,7 +231,11 @@ export class CoordinationService {
     const { session, started } = await this.store.startSession(id, startedAt);
     if (!started) return session;
     await this.emit(id, "session.started", {});
+    this.launchExecution(id);
+    return session;
+  }
 
+  private launchExecution(id: string): void {
     const controller = new AbortController();
     this.abortControllers.set(id, controller);
     const execution = this.executeSession(id, controller.signal);
@@ -238,7 +249,6 @@ export class CoordinationService {
         }
       })
       .catch(() => undefined);
-    return session;
   }
 
   async stopSession(id: string): Promise<CoordinationSession> {
@@ -249,8 +259,10 @@ export class CoordinationService {
     }
 
     this.abortControllers.get(id)?.abort();
-    const attemptId = this.activeAttemptIds.get(id);
-    if (attemptId) await this.executor.cancel(attemptId);
+    const attemptIds = [...(this.activeAttemptIds.get(id) ?? [])];
+    if (attemptIds.length > 0) {
+      await Promise.all(attemptIds.map((attemptId) => this.executor.cancel(attemptId)));
+    }
     const completedAt = this.clock.now();
     const session = await this.store.updateSession(id, (stored) => {
       stored.status = "cancelled";
@@ -259,6 +271,43 @@ export class CoordinationService {
     await this.store.cancelSessionWork(id, completedAt);
     await this.emit(id, "session.cancelled", {});
     return session;
+  }
+
+  async approveSession(id: string, reason: string): Promise<CoordinationSession> {
+    const current = this.store.getSession(id);
+    if (current.status !== "waiting_approval") {
+      throw new HttpError(409, `Cannot approve a ${current.status} Session`);
+    }
+    const approvedAt = this.clock.now();
+    await this.store.updateSession(id, (stored) => {
+      stored.status = "executing";
+      delete stored.failureReason;
+    });
+    await this.store.mutateTasks(id, (task) => {
+      if (task.status === "failed") {
+        task.status = "pending";
+        task.updatedAt = approvedAt;
+      }
+    });
+    await this.emit(id, "session.approved", { reason: reason.slice(0, 2_000) });
+    this.launchExecution(id);
+    return this.store.getSession(id);
+  }
+
+  async rejectSession(id: string, reason: string): Promise<CoordinationSession> {
+    const current = this.store.getSession(id);
+    if (current.status !== "waiting_approval") {
+      throw new HttpError(409, `Cannot reject a ${current.status} Session`);
+    }
+    const completedAt = this.clock.now();
+    await this.store.updateSession(id, (stored) => {
+      stored.status = "failed";
+      stored.failureReason = (reason || "Approval rejected").slice(0, 2_000);
+      stored.completedAt = completedAt;
+    });
+    await this.store.blockUnfinishedTasks(id, completedAt);
+    await this.emit(id, "session.rejected", { reason: (reason || "Approval rejected").slice(0, 2_000) });
+    return this.store.getSession(id);
   }
 
   async waitForIdle(id: string): Promise<void> {
@@ -292,19 +341,17 @@ export class CoordinationService {
         const succeeded = new Set(
           tasks.filter((task) => task.status === "succeeded").map((task) => task.id),
         );
-        const ready = tasks.filter(
-          (task) =>
-            task.status === "pending" &&
-            task.dependencies.every((dependency) => succeeded.has(dependency)),
-        );
+        const ready = computeReadyTasks(tasks, succeeded);
         if (ready.length === 0) {
           await this.failSession(sessionId, "No executable task remains");
           return;
         }
-        for (const task of ready.slice(0, session.budget.maxConcurrentTasks)) {
-          await this.executeTask(session, task, signal);
-          if (signal.aborted) return;
-        }
+        await Promise.all(
+          ready
+            .slice(0, session.budget.maxConcurrentTasks)
+            .map((task) => this.executeTask(session, task, signal)),
+        );
+        if (signal.aborted) return;
       }
     } catch (error) {
       if (this.store.getSession(sessionId).status !== "cancelled") {
@@ -382,7 +429,9 @@ export class CoordinationService {
       stored.status = "running";
       stored.startedAt = startedAt;
     });
-    this.activeAttemptIds.set(session.id, attempt.id);
+    const sessionAttempts = this.activeAttemptIds.get(session.id) ?? new Set<string>();
+    sessionAttempts.add(attempt.id);
+    this.activeAttemptIds.set(session.id, sessionAttempts);
     await this.emit(
       session.id,
       "attempt.started",
@@ -423,9 +472,7 @@ export class CoordinationService {
     }
     if (signal.aborted || this.store.getSession(session.id).status === "cancelled") return;
     await this.finishAttempt(session.id, runningTask, runningAttempt, result);
-    if (this.activeAttemptIds.get(session.id) === attempt.id) {
-      this.activeAttemptIds.delete(session.id);
-    }
+    this.activeAttemptIds.get(session.id)?.delete(attempt.id);
   }
 
   private async captureAndVerify(
@@ -464,7 +511,7 @@ export class CoordinationService {
         result.output,
       );
       if (capture.status === "rejected") {
-        await this.restoreExecutingStatus(session.id);
+        await this.restoreExecutingStatus(session.id, task.id);
         await this.emit(
           session.id,
           "verification.failed",
@@ -516,7 +563,7 @@ export class CoordinationService {
           { evidence: verification.evidence },
           correlation,
         );
-        await this.restoreExecutingStatus(session.id);
+        await this.restoreExecutingStatus(session.id, task.id);
         return result;
       }
 
@@ -539,7 +586,7 @@ export class CoordinationService {
         { error, failureClass: verification.failureClass },
         correlation,
       );
-      await this.restoreExecutingStatus(session.id);
+      await this.restoreExecutingStatus(session.id, task.id);
       return {
         status: "failed",
         failureClass: verification.failureClass,
@@ -547,7 +594,7 @@ export class CoordinationService {
         ...(result.runId ? { runId: result.runId } : {}),
       };
     } catch (error) {
-      await this.restoreExecutingStatus(session.id);
+      await this.restoreExecutingStatus(session.id, task.id);
       const message = (error instanceof Error ? error.message : String(error)).slice(
         0,
         2_000,
@@ -567,9 +614,13 @@ export class CoordinationService {
     }
   }
 
-  private async restoreExecutingStatus(sessionId: string): Promise<void> {
+  private async restoreExecutingStatus(sessionId: string, taskId: string): Promise<void> {
     await this.store.updateSession(sessionId, (stored) => {
-      if (stored.status === "verifying") stored.status = "executing";
+      if (stored.status !== "verifying") return;
+      const stillVerifying = this.store
+        .getTasks(sessionId)
+        .some((task) => task.status === "verifying" && task.id !== taskId);
+      if (!stillVerifying) stored.status = "executing";
     });
   }
 
