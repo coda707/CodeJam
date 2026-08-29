@@ -83,14 +83,45 @@ export function TaskGraph({
                 })}
               </div>
             </div>
-            {layerIndex < model.layers.length - 1 && (
-              <div className="graph-edge" aria-hidden="true">
-                <span />-&gt;
-              </div>
-            )}
           </div>
         ))}
       </div>
+      {model.edges.length > 0 && (
+        <div className="graph-dependencies">
+          <span className="eyebrow">Dependency Links</span>
+          <ul className="dependency-links" aria-label="Dependency links">
+            {model.edges.map((edge) => {
+              const source = tasksById.get(edge.fromTaskId);
+              const target = tasksById.get(edge.toTaskId);
+              const sourceTitle =
+                source?.title ?? `Missing Task ${shortId(edge.fromTaskId)}`;
+              const targetTitle =
+                target?.title ?? `Missing Task ${shortId(edge.toTaskId)}`;
+              return (
+                <li
+                  className="dependency-link"
+                  key={`${edge.fromTaskId}:${edge.toTaskId}`}
+                  data-edge-from={edge.fromTaskId}
+                  data-edge-to={edge.toTaskId}
+                  aria-label={`Dependency from ${sourceTitle}, ${edge.fromTaskId}, to ${targetTitle}, ${edge.toTaskId}`}
+                >
+                  <span>
+                    <strong>{sourceTitle}</strong>
+                    <code>{shortId(edge.fromTaskId)}</code>
+                  </span>
+                  <span className="dependency-link-arrow" aria-hidden="true">
+                    →
+                  </span>
+                  <span>
+                    <strong>{targetTitle}</strong>
+                    <code>{shortId(edge.toTaskId)}</code>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
       {model.issues.length > 0 && (
         <div className="graph-issues" role="alert">
           {model.issues.length} graph data issue

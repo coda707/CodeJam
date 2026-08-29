@@ -69,6 +69,34 @@ describe("coordination components", () => {
     expect(markup).toContain("2 nodes / 1 edges");
   });
 
+  it("renders every real DAG edge without inventing links", () => {
+    const tasks = [
+      makeTask("root"),
+      makeTask("disconnected"),
+      makeTask("branch-a", ["root"]),
+      makeTask("branch-b", ["root"]),
+      makeTask("merge", ["root", "branch-a", "branch-b"]),
+    ];
+    const markup = renderToStaticMarkup(
+      <TaskGraph
+        tasks={tasks}
+        agentNames={new Map([["agent-id", "Builder"]])}
+        usesRealAgents
+        selectedTaskId="root"
+        onSelectTask={() => undefined}
+      />,
+    );
+
+    expect(markup.match(/class="dependency-link"/g)).toHaveLength(5);
+    expect(markup).toContain('data-edge-from="root" data-edge-to="branch-a"');
+    expect(markup).toContain('data-edge-from="root" data-edge-to="branch-b"');
+    expect(markup).toContain('data-edge-from="root" data-edge-to="merge"');
+    expect(markup).toContain('data-edge-from="branch-a" data-edge-to="merge"');
+    expect(markup).toContain('data-edge-from="branch-b" data-edge-to="merge"');
+    expect(markup).not.toContain('data-edge-from="disconnected"');
+    expect(markup).not.toContain("graph-edge");
+  });
+
   it("exposes the selected coordination Session to assistive technology", () => {
     const session: CoordinationSession = {
       id: "session-selected-id",
