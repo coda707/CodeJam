@@ -5,6 +5,7 @@ import type {
   CoordinationAttempt,
   CoordinationTask,
 } from "../../types";
+import { CoordinationEmptyState } from "./CoordinationEmptyState";
 import { TaskGraph } from "./TaskGraph";
 import { TaskInspector } from "./TaskInspector";
 
@@ -35,6 +36,19 @@ function makeTask(id: string, dependencies: string[] = []): CoordinationTask {
 }
 
 describe("coordination components", () => {
+  it("renders an actionable recovery state after a Session load fails", () => {
+    const markup = renderToStaticMarkup(
+      <CoordinationEmptyState
+        hasSelection
+        loading={false}
+        onRetry={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Session unavailable");
+    expect(markup).toContain("Retry Session");
+  });
+
   it("renders selectable graph nodes with readable dependency text", () => {
     const tasks = [makeTask("plan"), makeTask("deliver", ["plan"])];
     const markup = renderToStaticMarkup(

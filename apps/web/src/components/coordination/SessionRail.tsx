@@ -73,6 +73,7 @@ export function SessionRail({
           className="button button-primary coordination-create"
           disabled={
             busy ||
+            loading ||
             !userTask.trim() ||
             (usesRealAgents && participantIds.length === 0)
           }

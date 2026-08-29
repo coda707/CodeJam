@@ -1967,6 +1967,10 @@ textarea:focus {
   font-size: 11px;
 }
 
+.coordination-empty-state .button {
+  margin-top: 16px;
+}
+
 @media (max-width: 1000px) {
   .coordination-layout {
     grid-template-columns: 240px minmax(0, 1fr);
