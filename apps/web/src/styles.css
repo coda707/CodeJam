@@ -2639,6 +2639,14 @@ textarea:focus {
   line-height: 1.55;
 }
 
+.evaluation-schema-path {
+  max-width: 100%;
+  margin: -8px 0 18px;
+  color: #6e6f68;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
 .evaluation-import input {
   position: absolute;
   width: 1px;

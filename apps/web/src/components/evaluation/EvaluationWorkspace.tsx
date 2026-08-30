@@ -234,6 +234,9 @@ export function EvaluationWorkspace() {
           JSON only, schema version 1, up to 100 evidence-linked runs and 1 MB.
           The imported data remains in this browser view and is not sent to the server.
         </p>
+        <code className="evaluation-schema-path">
+          docs/evaluation/mosaic-evaluation.schema.json
+        </code>
         <label className="button button-primary">
           Choose JSON file
           <input type="file" accept="application/json,.json" onChange={importDataset} />

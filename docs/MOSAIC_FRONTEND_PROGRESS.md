@@ -24,6 +24,8 @@ Implemented frontend work:
   as an audit label.
 - Timeline filtering by Task and persisted Event type.
 - Session budget context for concurrency, Attempts, Agent calls, and deadlines.
+- A strict evaluation dataset contract, local JSON import, provenance labeling,
+  three-strategy comparison, ablation list, and evidence traceability view.
 - Copy actions for Session, Agent, Task, Attempt, Run, Artifact, and hash values.
 - Responsive layouts from wide desktop to 320 px mobile screens.
 - Dialog semantics, keyboard focus, selected-state semantics, reduced-motion
@@ -53,7 +55,7 @@ Primary frontend files:
 
 Work that can continue before the other workstreams:
 
-- Single Agent, Static Team, and MOSAIC evaluation result format and comparison UI.
+- Single Agent, Static Team, and MOSAIC execution harnesses that produce real data.
 - Deterministic demo fixtures, critical-flow browser tests, and recording material.
 - Final demonstration-focused visual refinement.
 

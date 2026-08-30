@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mosaic.local/schemas/evaluation-v1.json",
+  "title": "MOSAIC Evaluation Dataset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "generatedAt", "source", "runs"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 240 },
+    "generatedAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label"],
+      "properties": {
+        "kind": { "enum": ["real", "fixture"] },
+        "label": { "type": "string", "minLength": 1, "maxLength": 240 }
+      }
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": { "$ref": "#/$defs/run" }
+    }
+  },
+  "$defs": {
+    "nonNegativeInteger": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000000
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "taskName",
+        "strategy",
+        "completedAt",
+        "evidenceRefs",
+        "metrics"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "taskName": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "strategy": { "enum": ["single_agent", "static_team", "mosaic"] },
+        "variant": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "completedAt": { "type": "string", "format": "date-time", "maxLength": 64 },
+        "evidenceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1000 }
+        },
+        "metrics": { "$ref": "#/$defs/metrics" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "taskSucceeded",
+        "acceptanceTestsPassed",
+        "acceptanceTestsTotal",
+        "acceptanceCriteriaMet",
+        "acceptanceCriteriaTotal",
+        "totalTokens",
+        "latencyMs",
+        "agentCalls",
+        "duplicateWorkCount",
+        "failedAttempts",
+        "recoveryAttempted",
+        "recoverySucceeded",
+        "humanInterventions",
+        "coordinationOverheadMs",
+        "failureLocalizationCorrect"
+      ],
+      "properties": {
+        "taskSucceeded": { "type": "boolean" },
+        "acceptanceTestsPassed": { "$ref": "#/$defs/nonNegativeInteger" },
+        "acceptanceTestsTotal": { "$ref": "#/$defs/nonNegativeInteger" },
+        "acceptanceCriteriaMet": { "$ref": "#/$defs/nonNegativeInteger" },
+        "acceptanceCriteriaTotal": { "$ref": "#/$defs/nonNegativeInteger" },
+        "totalTokens": { "$ref": "#/$defs/nonNegativeInteger" },
+        "latencyMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "agentCalls": { "$ref": "#/$defs/nonNegativeInteger" },
+        "duplicateWorkCount": { "$ref": "#/$defs/nonNegativeInteger" },
+        "failedAttempts": { "$ref": "#/$defs/nonNegativeInteger" },
+        "recoveryAttempted": { "type": "boolean" },
+        "recoverySucceeded": { "type": ["boolean", "null"] },
+        "humanInterventions": { "$ref": "#/$defs/nonNegativeInteger" },
+        "coordinationOverheadMs": { "$ref": "#/$defs/nonNegativeInteger" },
+        "failureLocalizationCorrect": { "type": ["boolean", "null"] }
+      }
+    }
+  }
+}
