@@ -7,6 +7,7 @@ import type {
   CoordinationTask,
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
+import { RefreshStatus } from "./RefreshStatus";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
 import { TaskInspector } from "./TaskInspector";
@@ -43,12 +44,28 @@ describe("coordination components", () => {
       <CoordinationEmptyState
         hasSelection
         loading={false}
+        errorMessage="Connection lost"
         onRetry={() => undefined}
       />,
     );
 
     expect(markup).toContain("Session unavailable");
+    expect(markup).toContain("Connection lost");
     expect(markup).toContain("Retry Session");
+  });
+
+  it("keeps stale Session data visible with a refresh recovery action", () => {
+    const markup = renderToStaticMarkup(
+      <RefreshStatus
+        failedAt={timestamp}
+        refreshing={false}
+        onRetry={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Showing last confirmed Session data");
+    expect(markup).toContain("Evidence may be stale");
+    expect(markup).toContain("Retry refresh");
   });
 
   it("renders selectable graph nodes with readable dependency text", () => {
@@ -123,11 +140,13 @@ describe("coordination components", () => {
         userTask=""
         busy={false}
         loading={false}
+        listUnavailable={false}
         usesRealAgents={false}
         onUserTaskChange={() => undefined}
         onToggleParticipant={() => undefined}
         onCreate={() => undefined}
         onSelect={() => undefined}
+        onRetrySessions={() => undefined}
       />,
     );
 

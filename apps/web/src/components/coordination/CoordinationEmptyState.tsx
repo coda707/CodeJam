@@ -1,12 +1,14 @@
 interface CoordinationEmptyStateProps {
   hasSelection: boolean;
   loading: boolean;
+  errorMessage?: string | null;
   onRetry: () => void;
 }
 
 export function CoordinationEmptyState({
   hasSelection,
   loading,
+  errorMessage,
   onRetry,
 }: CoordinationEmptyStateProps) {
   const heading = loading
@@ -29,6 +31,9 @@ export function CoordinationEmptyState({
       <div>M</div>
       <h2>{heading}</h2>
       <p>{description}</p>
+      {hasSelection && !loading && errorMessage && (
+        <p className="coordination-empty-error">{errorMessage}</p>
+      )}
       {hasSelection && !loading && (
         <button className="button button-primary" onClick={onRetry}>
           Retry Session

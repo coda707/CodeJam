@@ -24,6 +24,7 @@ import { EvidenceWorkspace } from "./EvidenceWorkspace";
 import { reconcileSelectedTaskId } from "./graphModel";
 import { MetricsSummary } from "./MetricsSummary";
 import { activeSessionStatuses } from "./presentation";
+import { RefreshStatus } from "./RefreshStatus";
 import { SessionCommandBar } from "./SessionCommandBar";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
@@ -37,8 +38,15 @@ interface CoordinationWorkspaceProps {
 
 interface WorkspaceError {
   message: string;
-  scope: "sessions" | "details" | "create" | "action";
+  scope: "sessions" | "create" | "action";
   sessionId?: string;
+}
+
+interface DetailIssue {
+  message: string;
+  sessionId: string;
+  stale: boolean;
+  failedAt: string;
 }
 
 const errorMessage = (reason: unknown) =>
@@ -63,8 +71,12 @@ export function CoordinationWorkspace({
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailReloadVersion, setDetailReloadVersion] = useState(0);
-  const [error, setError] = useState<WorkspaceError | null>(null);
+  const [workspaceError, setWorkspaceError] = useState<WorkspaceError | null>(
+    null,
+  );
+  const [detailIssue, setDetailIssue] = useState<DetailIssue | null>(null);
   const selectedIdRef = useRef<string | null>(selectedId);
+  const detailSnapshotIdRef = useRef<string | null>(null);
   const detailRequestGate = useRef(createDetailRequestGate());
   const sessionListRequestVersion = useRef(0);
 
@@ -79,6 +91,7 @@ export function CoordinationWorkspace({
     if (selectedIdRef.current === id) return;
     selectedIdRef.current = id;
     detailRequestGate.current.invalidate();
+    detailSnapshotIdRef.current = null;
     setSelectedId(id);
     setSession(null);
     setTasks([]);
@@ -88,7 +101,8 @@ export function CoordinationWorkspace({
     setMetrics(null);
     setSelectedTaskId(null);
     setDetailsLoading(id !== null);
-    setError(null);
+    setWorkspaceError(null);
+    setDetailIssue(null);
   }, []);
 
   const applySessionState = useCallback((next: CoordinationSession) => {
@@ -110,7 +124,9 @@ export function CoordinationWorkspace({
           ? current
           : (result.sessions[0]?.id ?? null);
       if (next !== current) selectSession(next);
-      setError((value) => (value?.scope === "sessions" ? null : value));
+      setWorkspaceError((value) =>
+        value?.scope === "sessions" ? null : value,
+      );
       return true;
     } catch (reason) {
       if (requestVersion !== sessionListRequestVersion.current) return false;
@@ -146,9 +162,8 @@ export function CoordinationWorkspace({
       setEvents(eventResult.events);
       setArtifacts(artifactResult.artifacts);
       setMetrics(metricResult.metrics);
-      setError((value) =>
-        value?.scope === "details" && value.sessionId === id ? null : value,
-      );
+      detailSnapshotIdRef.current = id;
+      setDetailIssue(null);
       setSessions((current) =>
         current.map((item) =>
           item.id === sessionResult.session.id ? sessionResult.session : item,
@@ -159,6 +174,15 @@ export function CoordinationWorkspace({
       if (!detailRequestGate.current.isCurrent(ticket, selectedIdRef.current)) {
         return false;
       }
+      setDetailIssue((current) => ({
+        message: errorMessage(reason),
+        sessionId: id,
+        stale: detailSnapshotIdRef.current === id,
+        failedAt:
+          current?.sessionId === id && current.stale
+            ? current.failedAt
+            : new Date().toISOString(),
+      }));
       throw reason;
     }
   }, []);
@@ -168,7 +192,7 @@ export function CoordinationWorkspace({
     void refreshSessions()
       .catch((reason) => {
         if (!cancelled) {
-          setError({ message: errorMessage(reason), scope: "sessions" });
+          setWorkspaceError({ message: errorMessage(reason), scope: "sessions" });
         }
       })
       .finally(() => {
@@ -195,15 +219,7 @@ export function CoordinationWorkspace({
     let cancelled = false;
     setDetailsLoading(true);
     void refreshDetails(selectedId)
-      .catch((reason) => {
-        if (!cancelled) {
-          setError({
-            message: errorMessage(reason),
-            scope: "details",
-            sessionId: selectedId,
-          });
-        }
-      })
+      .catch(() => undefined)
       .finally(() => {
         if (!cancelled && selectedIdRef.current === selectedId) {
           setDetailsLoading(false);
@@ -228,15 +244,7 @@ export function CoordinationWorkspace({
     const poll = async () => {
       try {
         await refreshDetails(selectedId);
-      } catch (reason) {
-        if (!cancelled) {
-          setError({
-            message: errorMessage(reason),
-            scope: "details",
-            sessionId: selectedId,
-          });
-        }
-      }
+      } catch {}
       if (!cancelled && selectedIdRef.current === selectedId) {
         timer = window.setTimeout(poll, 500);
       }
@@ -256,7 +264,7 @@ export function CoordinationWorkspace({
     event.preventDefault();
     if (!userTask.trim()) return;
     setBusy(true);
-    setError(null);
+    setWorkspaceError(null);
     try {
       const result = await api.createCoordinationSession({
         userTask: userTask.trim(),
@@ -267,7 +275,7 @@ export function CoordinationWorkspace({
       await refreshSessions();
       selectSession(result.session.id);
     } catch (reason) {
-      setError({ message: errorMessage(reason), scope: "create" });
+      setWorkspaceError({ message: errorMessage(reason), scope: "create" });
     } finally {
       setBusy(false);
     }
@@ -277,14 +285,14 @@ export function CoordinationWorkspace({
     if (!displayedSession) return;
     const sessionId = displayedSession.id;
     setBusy(true);
-    setError(null);
+    setWorkspaceError(null);
     try {
       const result = await api.startCoordinationSession(sessionId);
       applySessionState(result.session);
       await refreshDetails(sessionId);
     } catch (reason) {
       if (selectedIdRef.current === sessionId) {
-        setError({
+        setWorkspaceError({
           message: errorMessage(reason),
           scope: "action",
           sessionId,
@@ -299,14 +307,14 @@ export function CoordinationWorkspace({
     if (!displayedSession) return;
     const sessionId = displayedSession.id;
     setBusy(true);
-    setError(null);
+    setWorkspaceError(null);
     try {
       const result = await api.stopCoordinationSession(sessionId);
       applySessionState(result.session);
       await refreshDetails(sessionId);
     } catch (reason) {
       if (selectedIdRef.current === sessionId) {
-        setError({
+        setWorkspaceError({
           message: errorMessage(reason),
           scope: "action",
           sessionId,
@@ -328,19 +336,34 @@ export function CoordinationWorkspace({
   const retrySelectedSession = () => {
     if (!selectedId) return;
     detailRequestGate.current.invalidate();
-    setError(null);
+    setDetailIssue(null);
     setDetailsLoading(true);
     setDetailReloadVersion((value) => value + 1);
+  };
+
+  const retrySessions = async () => {
+    setSessionsLoading(true);
+    setWorkspaceError(null);
+    try {
+      await refreshSessions();
+    } catch (reason) {
+      setWorkspaceError({ message: errorMessage(reason), scope: "sessions" });
+    } finally {
+      setSessionsLoading(false);
+    }
   };
 
   return (
     <section className="coordination-workspace">
       <WorkspaceHeader executorMode={executorMode} />
 
-      {error && (
+      {workspaceError && workspaceError.scope !== "sessions" && (
         <div className="error-banner" role="alert">
-          <span>{error.message}</span>
-          <button aria-label="Dismiss error" onClick={() => setError(null)}>
+          <span>{workspaceError.message}</span>
+          <button
+            aria-label="Dismiss error"
+            onClick={() => setWorkspaceError(null)}
+          >
             x
           </button>
         </div>
@@ -355,16 +378,26 @@ export function CoordinationWorkspace({
           userTask={userTask}
           busy={busy}
           loading={sessionsLoading}
+          listUnavailable={workspaceError?.scope === "sessions"}
           usesRealAgents={usesRealAgents}
           onUserTaskChange={setUserTask}
           onToggleParticipant={toggleParticipant}
           onCreate={createSession}
           onSelect={selectSession}
+          onRetrySessions={() => void retrySessions()}
         />
 
         <div className="coordination-detail">
           {displayedSession ? (
             <>
+              {detailIssue?.sessionId === displayedSession.id &&
+                detailIssue.stale && (
+                  <RefreshStatus
+                    failedAt={detailIssue.failedAt}
+                    refreshing={detailsLoading}
+                    onRetry={retrySelectedSession}
+                  />
+                )}
               <SessionCommandBar
                 session={displayedSession}
                 attemptCount={attempts.length}
@@ -404,6 +437,11 @@ export function CoordinationWorkspace({
             <CoordinationEmptyState
               hasSelection={selectedId !== null}
               loading={detailsLoading}
+              errorMessage={
+                detailIssue?.sessionId === selectedId
+                  ? detailIssue.message
+                  : null
+              }
               onRetry={retrySelectedSession}
             />
           )}

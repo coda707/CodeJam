@@ -10,11 +10,13 @@ interface SessionRailProps {
   userTask: string;
   busy: boolean;
   loading: boolean;
+  listUnavailable: boolean;
   usesRealAgents: boolean;
   onUserTaskChange: (value: string) => void;
   onToggleParticipant: (agentId: string) => void;
   onCreate: (event: FormEvent) => void;
   onSelect: (sessionId: string) => void;
+  onRetrySessions: () => void;
 }
 
 export function SessionRail({
@@ -25,11 +27,13 @@ export function SessionRail({
   userTask,
   busy,
   loading,
+  listUnavailable,
   usesRealAgents,
   onUserTaskChange,
   onToggleParticipant,
   onCreate,
   onSelect,
+  onRetrySessions,
 }: SessionRailProps) {
   return (
     <aside className="coordination-panel coordination-create-panel">
@@ -101,7 +105,19 @@ export function SessionRail({
             </span>
           </button>
         ))}
-        {!loading && sessions.length === 0 && (
+        {!loading && sessions.length === 0 && listUnavailable && (
+          <div className="coordination-list-error" role="status">
+            <p>Session history is unavailable.</p>
+            <button
+              type="button"
+              className="button button-ghost"
+              onClick={onRetrySessions}
+            >
+              Retry Sessions
+            </button>
+          </div>
+        )}
+        {!loading && sessions.length === 0 && !listUnavailable && (
           <p className="coordination-empty">
             Create the first Session to see its DAG.
           </p>

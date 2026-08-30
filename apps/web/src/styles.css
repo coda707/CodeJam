@@ -1345,6 +1345,23 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.coordination-list-error {
+  padding: 10px;
+  border: 1px solid #efc7c2;
+  border-radius: 9px;
+  background: #fff7f5;
+}
+
+.coordination-list-error p {
+  margin: 0 0 8px;
+  color: #9c4444;
+  font-size: 10px;
+}
+
+.coordination-list-error .button {
+  width: 100%;
+}
+
 .coordination-create {
   width: 100%;
 }
@@ -1405,6 +1422,33 @@ textarea:focus {
 .coordination-detail {
   display: grid;
   gap: 14px;
+}
+
+.coordination-refresh-status {
+  padding: 12px 14px;
+  border: 1px solid #e6c96f;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  color: #66500e;
+  background: #fff9e6;
+}
+
+.coordination-refresh-status strong,
+.coordination-refresh-status span {
+  display: block;
+}
+
+.coordination-refresh-status strong {
+  font-size: 11px;
+}
+
+.coordination-refresh-status span {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.45;
 }
 
 .session-summary {
@@ -2106,6 +2150,13 @@ textarea:focus {
   font-size: 11px;
 }
 
+.coordination-empty-state .coordination-empty-error {
+  max-width: 480px;
+  margin-top: 8px;
+  color: #a94444;
+  overflow-wrap: anywhere;
+}
+
 .coordination-empty-state .button {
   margin-top: 16px;
 }
@@ -2162,6 +2213,11 @@ textarea:focus {
   .session-controls {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .coordination-refresh-status {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 
