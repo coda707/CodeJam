@@ -30,6 +30,12 @@ export function SessionCommandBar({
           <span>{session.topology}</span>
           <span>{session.participantAgentIds.length} participants</span>
           <span>{attemptCount} attempts</span>
+          <span>{session.budget.maxConcurrentTasks} concurrent</span>
+          <span>{session.budget.maxAttemptsPerTask} attempts / Task</span>
+          <span>{session.budget.maxAgentCalls} call limit</span>
+          {session.budget.deadlineAt && (
+            <span>Deadline {new Date(session.budget.deadlineAt).toLocaleString()}</span>
+          )}
         </div>
       </div>
       <div className="session-controls">

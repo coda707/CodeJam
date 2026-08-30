@@ -9,8 +9,10 @@ import type {
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
 import { CopyIdentifier } from "./CopyIdentifier";
+import { EventTimeline } from "./EventTimeline";
 import { RefreshStatus } from "./RefreshStatus";
 import { RecoveryPanel } from "./RecoveryPanel";
+import { SessionCommandBar } from "./SessionCommandBar";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
 import { TaskInspector } from "./TaskInspector";
@@ -268,6 +270,63 @@ describe("coordination components", () => {
     expect(markup).toContain('data-edge-from="branch-b" data-edge-to="merge"');
     expect(markup).not.toContain('data-edge-from="disconnected"');
     expect(markup).not.toContain("graph-edge");
+  });
+
+  it("offers Task and event-type filters for persisted evidence", () => {
+    const task = makeTask("verify");
+    const event: CoordinationEvent = {
+      id: "event-filter-id",
+      sessionId: "session",
+      taskId: task.id,
+      type: "task.succeeded",
+      payload: { title: task.title },
+      createdAt: timestamp,
+    };
+    const markup = renderToStaticMarkup(
+      <EventTimeline
+        events={[event]}
+        tasks={[task]}
+        agentNames={new Map()}
+      />,
+    );
+
+    expect(markup).toContain("All Tasks");
+    expect(markup).toContain("All event types");
+    expect(markup).toContain("task.succeeded");
+    expect(markup).toContain("1 / 1 events");
+  });
+
+  it("shows the authoritative Session execution budget", () => {
+    const session: CoordinationSession = {
+      id: "session-budget-id",
+      userTask: "Coordinate within budget",
+      status: "planning",
+      topology: "parallel",
+      participantAgentIds: [],
+      rootTraceId: "trace-id",
+      budget: {
+        maxTasks: 8,
+        maxConcurrentTasks: 3,
+        maxAttemptsPerTask: 2,
+        maxAgentCalls: 12,
+        maxEvents: 100,
+      },
+      createdAt: timestamp,
+    };
+    const markup = renderToStaticMarkup(
+      <SessionCommandBar
+        session={session}
+        attemptCount={0}
+        busy={false}
+        usesRealAgents={false}
+        onStart={() => undefined}
+        onStop={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain("3 concurrent");
+    expect(markup).toContain("2 attempts / Task");
+    expect(markup).toContain("12 call limit");
   });
 
   it("exposes the selected coordination Session to assistive technology", () => {
