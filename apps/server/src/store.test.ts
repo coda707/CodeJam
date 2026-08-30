@@ -36,6 +36,39 @@ describe("JsonStore", () => {
     });
   });
 
+  it("backfills legacy Runs as Playground without deleting history", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "launchpad-store-run-test-"));
+    temporaryDirectories.push(root);
+    const filePath = path.join(root, "db.json");
+    await writeFile(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        agents: [],
+        messages: [],
+        runs: [
+          {
+            id: "run-1",
+            agentId: "agent-1",
+            status: "completed",
+            prompt: "legacy",
+            output: null,
+            error: null,
+            usage: null,
+            startedAt: null,
+            completedAt: null,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      }),
+      "utf8",
+    );
+    const store = new JsonStore(filePath);
+    await store.initialize();
+
+    expect(store.snapshot().runs[0]).toMatchObject({ purpose: "playground" });
+  });
+
   it("does not publish a mutation in memory when persistence fails", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "launchpad-store-test-"));
     temporaryDirectories.push(root);

@@ -135,6 +135,7 @@ export const coordinationSessionSchema = z.strictObject({
 export const taskNodeSchema = z.strictObject({
   id: boundedId,
   sessionId: boundedId,
+  planKey: taskKeySchema.optional(),
   title: boundedText(160),
   instructions: boundedText(10_000),
   dependencies: z.array(boundedId).max(MAX_COORDINATION_TASKS),
@@ -210,6 +211,7 @@ export const coordinationEventTypeSchema = z.enum([
   "task.failed",
   "task.retried",
   "task.reassigned",
+  "task.repair_created",
   "attempt.created",
   "attempt.started",
   "attempt.succeeded",
@@ -272,9 +274,33 @@ export const coordinationMetricsSchema = z.strictObject({
   ]),
 });
 
+export const workflowTurnTakingSchema = z.strictObject({
+  agentIds: z.array(boundedId).min(2).max(32),
+  pattern: z.enum(["round_robin"]).default("round_robin"),
+});
+
+export const workflowTaskInputSchema = z.strictObject({
+  key: taskKeySchema,
+  title: boundedText(160),
+  instructions: boundedText(10_000),
+  dependencies: z
+    .array(taskKeySchema)
+    .max(MAX_COORDINATION_TASKS)
+    .default([]),
+  requiredCapabilities: z.array(boundedText(80)).max(16).default([]),
+  acceptanceCriteria: z.array(acceptanceCriterionSchema).min(1).max(16),
+  assignedAgentId: boundedId.optional(),
+});
+
+export const workflowSchema = z.strictObject({
+  tasks: z.array(workflowTaskInputSchema).min(1).max(MAX_COORDINATION_TASKS),
+  turnTaking: workflowTurnTakingSchema.optional(),
+});
+
 export const createCoordinationSessionInputSchema = z.strictObject({
   userTask: boundedText(50_000),
   participantAgentIds: z.array(boundedId).max(32).default([]),
+  workflow: workflowSchema.optional(),
 });
 
 const plannerTaskSchema = z.strictObject({
@@ -286,6 +312,7 @@ const plannerTaskSchema = z.strictObject({
     .max(MAX_COORDINATION_TASKS),
   requiredCapabilities: z.array(boundedText(80)).max(16),
   acceptanceCriteria: z.array(acceptanceCriterionSchema).min(1).max(16),
+  assignedAgentId: boundedId.optional(),
 });
 
 export const plannerOutputSchema = z.strictObject({
@@ -311,6 +338,8 @@ export const recoveryActionSchema = z.enum([
   "retry",
   "reassign",
   "request_approval",
+  "repair",
+  "replan",
   "stop",
 ]);
 
@@ -346,6 +375,9 @@ export type CoordinationMetrics = z.infer<typeof coordinationMetricsSchema>;
 export type CreateCoordinationSessionInput = z.infer<
   typeof createCoordinationSessionInputSchema
 >;
+export type WorkflowTurnTaking = z.infer<typeof workflowTurnTakingSchema>;
+export type WorkflowTaskInput = z.infer<typeof workflowTaskInputSchema>;
+export type Workflow = z.infer<typeof workflowSchema>;
 export type PlannerOutput = z.infer<typeof plannerOutputSchema>;
 export type WorkerOutput = z.infer<typeof workerOutputSchema>;
 export type TeamBuilderOutput = z.infer<typeof teamBuilderOutputSchema>;

@@ -1,6 +1,7 @@
 import { mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { tmpdir } from "node:os";
+import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { AgentService } from "./agent-service.js";
 import { loadConfig } from "./config.js";
@@ -79,6 +80,31 @@ describe("Agent lifecycle", () => {
     expect(messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(messages[1]?.content).toContain("write hello world");
     expect(service.getAgent(agent.id).codexThreadId).toBe("fake-thread");
+  });
+
+  it("isolates a coordination Run from the Playground transcript and Thread", async () => {
+    const service = await makeService();
+    const agent = await service.createAgent({ name: "Coordinated" });
+    const sessionId = randomUUID();
+    const taskId = randomUUID();
+    const attemptId = randomUUID();
+    const { run, message } = await service.sendMessage(agent.id, "worker prompt", {
+      purpose: "coordination",
+      coordination: { sessionId, taskId, attemptId },
+    });
+
+    expect(message).toBeNull();
+    expect(run).toMatchObject({
+      purpose: "coordination",
+      sessionId,
+      taskId,
+      attemptId,
+    });
+    await expect.poll(() => service.getRun(run.id).status).toBe("completed");
+    // No Worker prompt or output may surface as an ordinary Playground turn.
+    expect(service.getMessages(agent.id)).toHaveLength(0);
+    // The coordination Run must not replace the Playground Thread id.
+    expect(service.getAgent(agent.id).codexThreadId).toBeNull();
   });
 
   it("atomically accepts only one concurrent run per Agent", async () => {

@@ -26,6 +26,7 @@ export interface Message {
 export interface AgentRun {
   id: string;
   agentId: string;
+  purpose: "playground" | "coordination";
   status: RunStatus;
   prompt: string;
   output: string | null;
@@ -36,6 +37,9 @@ export interface AgentRun {
     outputTokens?: number;
   } | null;
   createdAt: string;
+  sessionId?: string;
+  taskId?: string;
+  attemptId?: string;
 }
 
 export interface SystemInfo {

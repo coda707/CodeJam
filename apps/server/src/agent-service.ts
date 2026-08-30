@@ -9,6 +9,7 @@ import type {
   AgentRunner,
   CreateAgentInput,
   Message,
+  SendMessageOptions,
   UpdateAgentInput,
 } from "./types.js";
 import { WorkspaceManager } from "./workspace.js";
@@ -167,7 +168,8 @@ export class AgentService {
   async sendMessage(
     agentId: string,
     prompt: string,
-  ): Promise<{ run: AgentRun; message: Message }> {
+    options: SendMessageOptions = { purpose: "playground" },
+  ): Promise<{ run: AgentRun; message: Message | null }> {
     if (!isArkConfigured(this.config)) {
       throw new HttpError(
         503,
@@ -176,9 +178,12 @@ export class AgentService {
     }
     const timestamp = now();
     const runId = randomUUID();
+    const isCoordination = options.purpose === "coordination";
+    const correlation = isCoordination ? options.coordination : undefined;
     const run: AgentRun = {
       id: runId,
       agentId,
+      purpose: options.purpose ?? "playground",
       status: "queued",
       prompt,
       output: null,
@@ -187,15 +192,20 @@ export class AgentService {
       startedAt: null,
       completedAt: null,
       createdAt: timestamp,
+      ...(correlation ?? {}),
     };
-    const message: Message = {
-      id: randomUUID(),
-      agentId,
-      runId,
-      role: "user",
-      content: prompt,
-      createdAt: timestamp,
-    };
+    // Coordination Runs never write into the Playground transcript: the Worker
+    // prompt and its output must not surface as ordinary user/assistant turns.
+    const message: Message | null = isCoordination
+      ? null
+      : {
+          id: randomUUID(),
+          agentId,
+          runId,
+          role: "user",
+          content: prompt,
+          createdAt: timestamp,
+        };
     const agentAtStart = await this.store.mutate((database) => {
       const storedAgent = database.agents.find((item) => item.id === agentId);
       if (!storedAgent) {
@@ -208,7 +218,7 @@ export class AgentService {
         throw new HttpError(409, "This Agent is already running");
       }
       database.runs.push(run);
-      database.messages.push(message);
+      if (message) database.messages.push(message);
       const snapshot = structuredClone(storedAgent);
       storedAgent.status = "busy";
       storedAgent.lastError = null;
@@ -248,6 +258,7 @@ export class AgentService {
   }
 
   private async executeRun(agentAtStart: Agent, run: AgentRun): Promise<void> {
+    const isCoordination = run.purpose === "coordination";
     await this.store.mutate((database) => {
       const storedRun = database.runs.find((item) => item.id === run.id);
       if (storedRun) {
@@ -263,7 +274,9 @@ export class AgentService {
         agentId: agentAtStart.id,
         workspacePath: agentAtStart.workspacePath,
         prompt: run.prompt,
-        threadId: agentAtStart.codexThreadId,
+        // Coordination uses a fresh Thread: it must not read or replace the
+        // Agent's Playground Thread, so no continuation id is passed.
+        threadId: isCoordination ? null : agentAtStart.codexThreadId,
       });
       const completedAt = now();
       await this.store.mutate((database) => {
@@ -274,16 +287,18 @@ export class AgentService {
         storedRun.output = result.output;
         storedRun.usage = result.usage;
         storedRun.completedAt = completedAt;
-        database.messages.push({
-          id: randomUUID(),
-          agentId: agent.id,
-          runId: run.id,
-          role: "assistant",
-          content: result.output,
-          createdAt: completedAt,
-        });
+        if (!isCoordination) {
+          database.messages.push({
+            id: randomUUID(),
+            agentId: agent.id,
+            runId: run.id,
+            role: "assistant",
+            content: result.output,
+            createdAt: completedAt,
+          });
+          agent.codexThreadId = result.threadId;
+        }
         agent.status = "ready";
-        agent.codexThreadId = result.threadId;
         agent.lastError = null;
         agent.updatedAt = completedAt;
       });

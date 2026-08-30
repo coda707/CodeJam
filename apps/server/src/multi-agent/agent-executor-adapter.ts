@@ -1,4 +1,4 @@
-import type { AgentRun } from "../types.js";
+import type { AgentRun, SendMessageOptions } from "../types.js";
 import { workerOutputSchema, type WorkerOutput } from "./contracts.js";
 import { classifyExecutionFailure } from "./failure-classifier.js";
 import type {
@@ -8,7 +8,11 @@ import type {
 } from "./ports.js";
 
 export interface AgentExecutionService {
-  sendMessage(agentId: string, prompt: string): Promise<{ run: AgentRun }>;
+  sendMessage(
+    agentId: string,
+    prompt: string,
+    options: SendMessageOptions,
+  ): Promise<{ run: AgentRun }>;
   waitForRun(runId: string): Promise<AgentRun>;
   cancelRun(runId: string): Promise<boolean>;
 }
@@ -88,7 +92,14 @@ export class AgentServiceCoordinationExecutor implements CoordinationExecutor {
     let runId: string | undefined;
     const abort = () => void this.cancel(request.attempt.id).catch(() => undefined);
     try {
-      const started = await this.service.sendMessage(agentId, buildWorkerPrompt(request));
+      const started = await this.service.sendMessage(agentId, buildWorkerPrompt(request), {
+        purpose: "coordination",
+        coordination: {
+          sessionId: request.session.id,
+          taskId: request.task.id,
+          attemptId: request.attempt.id,
+        },
+      });
       runId = started.run.id;
       this.activeRuns.set(request.attempt.id, runId);
       signal?.addEventListener("abort", abort, { once: true });

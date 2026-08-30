@@ -28,6 +28,9 @@ export function validateTeamBuilderOutput(
   }
 
   const taskKeys = new Set(plan.tasks.map((task) => task.key));
+  const fixedTaskKeys = new Set(
+    plan.tasks.filter((task) => task.assignedAgentId).map((task) => task.key),
+  );
   const assignedTaskKeys = new Set<string>();
   for (const assignment of output.assignments) {
     if (!taskKeys.has(assignment.taskKey)) {
@@ -39,10 +42,16 @@ export function validateTeamBuilderOutput(
     if (assignedTaskKeys.has(assignment.taskKey)) {
       throw new HttpError(400, "Team builder assigned a Task more than once");
     }
+    if (fixedTaskKeys.has(assignment.taskKey)) {
+      throw new HttpError(400, "Team builder overwrote a user-fixed assignment");
+    }
     assignedTaskKeys.add(assignment.taskKey);
   }
-  if (participants.size > 0 && assignedTaskKeys.size !== plan.tasks.length) {
-    throw new HttpError(400, "Team builder must assign every planned Task");
+  if (
+    participants.size > 0 &&
+    assignedTaskKeys.size !== plan.tasks.length - fixedTaskKeys.size
+  ) {
+    throw new HttpError(400, "Team builder must assign every un-fixed Task");
   }
   if (participants.size === 0 && output.assignments.length > 0) {
     throw new HttpError(400, "Team builder cannot assign Tasks without participants");
@@ -55,8 +64,9 @@ export class ParticipantOrderTeamBuilder implements CoordinationTeamBuilder {
     request: CoordinationTeamBuilderRequest,
   ): Promise<TeamBuilderOutput> {
     const participantAgentIds = [...new Set(request.candidateAgentIds)];
+    const unfixed = request.plan.tasks.filter((task) => !task.assignedAgentId);
     const assignments = participantAgentIds.length
-      ? request.plan.tasks.map((task, index) => ({
+      ? unfixed.map((task, index) => ({
           taskKey: task.key,
           agentId: participantAgentIds[index % participantAgentIds.length]!,
         }))
@@ -126,7 +136,8 @@ export class CapabilityTeamBuilder implements CoordinationTeamBuilder {
     }
 
     const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
-    const assignments = request.plan.tasks.map((task) => {
+    const unfixed = request.plan.tasks.filter((task) => !task.assignedAgentId);
+    const assignments = unfixed.map((task) => {
       let bestAgentId = participantAgentIds[0];
       let bestScore = Number.NEGATIVE_INFINITY;
       for (const agentId of participantAgentIds) {

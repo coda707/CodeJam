@@ -16,6 +16,11 @@ const emptyDatabase = (): Database => ({
 
 const normalizeDatabase = (database: Database): Database => ({
   ...database,
+  runs: Array.isArray(database.runs)
+    ? database.runs.map((run) =>
+        run.purpose ? run : { ...run, purpose: "playground" as const },
+      )
+    : [],
   coordinationSessions: Array.isArray(database.coordinationSessions)
     ? database.coordinationSessions
     : [],

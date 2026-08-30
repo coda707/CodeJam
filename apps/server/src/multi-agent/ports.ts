@@ -10,11 +10,13 @@ import type {
   TaskNode,
   TeamBuilderOutput,
   WorkerOutput,
+  Workflow,
 } from "./contracts.js";
 
 export interface CoordinationPlanningRequest {
   userTask: string;
   participantAgentIds: string[];
+  workflow?: Workflow;
 }
 
 export interface CoordinationPlanner {

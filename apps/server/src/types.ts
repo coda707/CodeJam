@@ -9,6 +9,18 @@ import type {
 export type AgentStatus = "ready" | "busy" | "stopped" | "error";
 export type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type MessageRole = "user" | "assistant";
+export type RunPurpose = "playground" | "coordination";
+
+export interface RunCoordinationCorrelation {
+  sessionId: string;
+  taskId: string;
+  attemptId: string;
+}
+
+export interface SendMessageOptions {
+  purpose?: RunPurpose;
+  coordination?: RunCoordinationCorrelation;
+}
 
 export interface Agent {
   id: string;
@@ -41,6 +53,7 @@ export interface RunUsage {
 export interface AgentRun {
   id: string;
   agentId: string;
+  purpose: RunPurpose;
   status: RunStatus;
   prompt: string;
   output: string | null;
@@ -49,6 +62,9 @@ export interface AgentRun {
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string;
+  sessionId?: string;
+  taskId?: string;
+  attemptId?: string;
 }
 
 export interface Database {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import type { AgentRun } from "../types.js";
+import type { AgentRun, SendMessageOptions } from "../types.js";
 import {
   AgentServiceCoordinationExecutor,
   buildWorkerPrompt,
@@ -56,6 +56,31 @@ describe("AgentServiceCoordinationExecutor", () => {
     });
     expect(receivedPrompt).toBe(buildWorkerPrompt(request));
     expect(receivedPrompt).toContain("exactly one JSON object");
+  });
+
+  it("forwards coordination purpose and Session/Task/Attempt correlation", async () => {
+    const request = makeTaskExecutionRequest();
+    const run = makeRun({ agentId: request.attempt.agentId! });
+    let receivedOptions: SendMessageOptions | undefined;
+    const service: AgentExecutionService = {
+      sendMessage: async (_agentId, _prompt, options) => {
+        receivedOptions = options;
+        return { run: { ...run, status: "queued", output: null } };
+      },
+      waitForRun: async () => run,
+      cancelRun: async () => false,
+    };
+
+    await new AgentServiceCoordinationExecutor(service).execute(request);
+
+    expect(receivedOptions).toEqual({
+      purpose: "coordination",
+      coordination: {
+        sessionId: request.session.id,
+        taskId: request.task.id,
+        attemptId: request.attempt.id,
+      },
+    });
   });
 
   it("includes verified dependency output and Artifact evidence in the prompt", () => {

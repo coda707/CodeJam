@@ -64,6 +64,79 @@ describe("ParticipantOrderTeamBuilder", () => {
       ),
     ).toThrow(/non-participant/i);
   });
+
+  it("skips a user-fixed task and only assigns the remaining one", async () => {
+    const fixedId = randomUUID();
+    const otherId = randomUUID();
+    const fixedPlan: PlannerOutput = {
+      ...plan,
+      tasks: [
+        { ...plan.tasks[0]!, assignedAgentId: fixedId },
+        plan.tasks[1]!,
+      ],
+    };
+
+    await expect(
+      new ParticipantOrderTeamBuilder().select({
+        userTask: "Deliver a feature",
+        plan: fixedPlan,
+        candidateAgentIds: [otherId],
+      }),
+    ).resolves.toMatchObject({
+      assignments: [{ taskKey: "deliver", agentId: otherId }],
+    });
+  });
+
+  it("accepts a partial assignment that leaves the fixed task untouched", () => {
+    const fixedId = randomUUID();
+    const otherId = randomUUID();
+    const fixedPlan: PlannerOutput = {
+      ...plan,
+      tasks: [
+        { ...plan.tasks[0]!, assignedAgentId: fixedId },
+        plan.tasks[1]!,
+      ],
+    };
+
+    expect(() =>
+      validateTeamBuilderOutput(
+        {
+          participantAgentIds: [otherId],
+          assignments: [{ taskKey: "deliver", agentId: otherId }],
+          explanation: "Only the un-fixed task is assigned",
+        },
+        fixedPlan,
+        [otherId],
+      ),
+    ).not.toThrow();
+  });
+
+  it("rejects overwriting a user-fixed assignment", () => {
+    const fixedId = randomUUID();
+    const otherId = randomUUID();
+    const fixedPlan: PlannerOutput = {
+      ...plan,
+      tasks: [
+        { ...plan.tasks[0]!, assignedAgentId: fixedId },
+        plan.tasks[1]!,
+      ],
+    };
+
+    expect(() =>
+      validateTeamBuilderOutput(
+        {
+          participantAgentIds: [otherId],
+          assignments: [
+            { taskKey: "plan", agentId: otherId },
+            { taskKey: "deliver", agentId: otherId },
+          ],
+          explanation: "Overwrites the fixed task",
+        },
+        fixedPlan,
+        [otherId],
+      ),
+    ).toThrow(/user-fixed assignment/i);
+  });
 });
 
 const capabilityPlan: PlannerOutput = {

@@ -431,7 +431,9 @@ describe("approval flow", () => {
       cancel: async () => false,
     };
     const service = await makeService(executor, {
-      recoveryPolicy: new ClassificationRecoveryPolicy(),
+      recoveryPolicy: new ClassificationRecoveryPolicy({
+        testFailureAction: "request_approval",
+      }),
     });
     const { session } = await service.createSession({
       userTask: "Exercise the approval path",
@@ -461,7 +463,9 @@ describe("approval flow", () => {
       cancel: async () => false,
     };
     const service = await makeService(executor, {
-      recoveryPolicy: new ClassificationRecoveryPolicy(),
+      recoveryPolicy: new ClassificationRecoveryPolicy({
+        testFailureAction: "request_approval",
+      }),
     });
     const { session } = await service.createSession({
       userTask: "Reject this Session",
@@ -478,6 +482,178 @@ describe("approval flow", () => {
     expect(
       service.getEvents(session.id).some((event) => event.type === "session.rejected"),
     ).toBe(true);
+  });
+});
+
+describe("recovery link: repair and replan", () => {
+  it("creates a repair Task, supersedes the original and rewires downstream work", async () => {
+    let calls = 0;
+    const executor: CoordinationExecutor = {
+      execute: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            status: "failed",
+            failureClass: "test_failure",
+            error: "Acceptance command exited with code 1",
+          };
+        }
+        return {
+          status: "succeeded",
+          output: {
+            summary: "Repaired execution",
+            artifactPaths: [],
+            evidence: ["Execution completed"],
+            unresolvedIssues: [],
+          },
+        };
+      },
+      cancel: async () => false,
+    };
+    const service = await makeService(executor, {
+      recoveryPolicy: new ClassificationRecoveryPolicy(),
+    });
+    const { session, tasks } = await service.createSession({
+      userTask: "Repair a failing acceptance test",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getSession(session.id).status).toBe("completed");
+    const storedTasks = service.getTasks(session.id);
+    const original = storedTasks.find((task) => task.id === tasks[0]?.id);
+    expect(original?.status).toBe("superseded");
+    const repair = storedTasks.find((task) => task.title.endsWith("(repair)"));
+    expect(repair?.status).toBe("succeeded");
+    expect(repair?.dependencies).toEqual(original?.dependencies);
+    const downstream = storedTasks.find((task) => task.id === tasks[1]?.id);
+    expect(downstream?.dependencies).toEqual([repair?.id]);
+    expect(
+      service.getEvents(session.id).some((event) => event.type === "task.repair_created"),
+    ).toBe(true);
+    expect(service.getEvents(session.id).at(-1)?.type).toBe("session.completed");
+  });
+
+  it("re-plans the unfinished subgraph without repeating completed work", async () => {
+    const executedTitles: string[] = [];
+    let deliverCalls = 0;
+    const executor: CoordinationExecutor = {
+      execute: async (request) => {
+        executedTitles.push(request.task.title);
+        if (request.task.title.startsWith("Deliver")) {
+          deliverCalls += 1;
+          if (deliverCalls === 1) {
+            return {
+              status: "failed",
+              failureClass: "no_progress",
+              error: "The deliver Task produced no new artifacts",
+            };
+          }
+        }
+        return {
+          status: "succeeded",
+          output: {
+            summary: `Completed ${request.task.title}`,
+            artifactPaths: [],
+            evidence: ["Execution completed"],
+            unresolvedIssues: [],
+          },
+        };
+      },
+      cancel: async () => false,
+    };
+    const service = await makeService(executor, {
+      recoveryPolicy: new ClassificationRecoveryPolicy(),
+    });
+    const { session } = await service.createSession({
+      userTask: "Re-plan after no progress",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    expect(service.getSession(session.id).status).toBe("completed");
+    expect(
+      service.getEvents(session.id).some((event) => event.type === "plan.revised"),
+    ).toBe(true);
+    const planCalls = executedTitles.filter((title) => title.startsWith("Plan")).length;
+    expect(planCalls).toBe(1);
+    expect(service.getEvents(session.id).at(-1)?.type).toBe("session.completed");
+  });
+});
+
+describe("user-constrained workflow", () => {
+  it("compiles an alternating two-Agent workflow and preserves every fixed assignment", async () => {
+    const agentA = randomUUID();
+    const agentB = randomUUID();
+    const acceptanceCriterion = {
+      id: "count-verified",
+      kind: "command" as const,
+      description: "The counting sequence is verified",
+      value: "node scripts/verify-count.js",
+    };
+    const workflow = {
+      tasks: Array.from({ length: 10 }, (_, index) => ({
+        key: `count-${index + 1}`,
+        title: `Count ${index + 1}`,
+        instructions: `Record the number ${index + 1} and hand off to the next Agent.`,
+        dependencies: [],
+        requiredCapabilities: [],
+        acceptanceCriteria: [
+          {
+            id: `count-${index + 1}-output`,
+            kind: "artifact" as const,
+            description: "Structured WorkerOutput is produced",
+            value: "worker-output",
+          },
+        ],
+      })).concat([
+        {
+          key: "verify",
+          title: "Verify the sequence",
+          instructions: "Verify the exact sequence from 1 to 10 and that Agents alternate.",
+          dependencies: [],
+          requiredCapabilities: [],
+          acceptanceCriteria: [acceptanceCriterion],
+        },
+      ]),
+      turnTaking: { agentIds: [agentA, agentB], pattern: "round_robin" },
+    };
+
+    const service = await makeService(undefined, {
+      planner: new HeuristicCoordinationPlanner(),
+      verifier: {
+        verify: async () => ({ status: "accepted", evidence: ["sequence verified"] }),
+      },
+    });
+    const { session, tasks } = await service.createSession({
+      userTask: "Count from 1 to 10 with two Agents alternating",
+      participantAgentIds: [agentA, agentB],
+      workflow,
+    });
+
+    expect(tasks).toHaveLength(11);
+    for (let index = 0; index < 10; index += 1) {
+      expect(tasks[index]?.assignedAgentId).toBe(index % 2 === 0 ? agentA : agentB);
+    }
+    for (let index = 1; index < 11; index += 1) {
+      expect(tasks[index]?.dependencies).toEqual([tasks[index - 1]?.id]);
+    }
+    const verify = tasks[10];
+    expect(verify?.dependencies).toEqual([tasks[9]?.id]);
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+    expect(service.getSession(session.id).status).toBe("completed");
+    const selected = service
+      .getEvents(session.id)
+      .filter((event) => event.type === "agent.selected");
+    expect(selected).toHaveLength(11);
+    expect(selected[0]?.agentId).toBe(agentA);
+    expect(selected[1]?.agentId).toBe(agentB);
   });
 });
 

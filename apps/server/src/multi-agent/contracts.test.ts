@@ -3,7 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_EVENT_PAYLOAD_BYTES,
   coordinationEventSchema,
+  createCoordinationSessionInputSchema,
   plannerOutputSchema,
+  recoveryDecisionSchema,
+  workflowSchema,
 } from "./contracts.js";
 
 const criterion = {
@@ -73,4 +76,100 @@ describe("coordination contracts", () => {
       }),
     ).toThrow(/payload exceeds/i);
   });
+
+  it("accepts a workflow with an explicit turn-taking rule", () => {
+    const [agentA, agentB] = [randomUUID(), randomUUID()];
+    const result = workflowSchema.parse({
+      tasks: [
+        {
+          key: "count-1",
+          title: "Count one",
+          instructions: "Report one",
+          acceptanceCriteria: [criterion],
+        },
+        {
+          key: "count-2",
+          title: "Count two",
+          instructions: "Report two",
+          acceptanceCriteria: [criterion],
+        },
+      ],
+      turnTaking: { agentIds: [agentA, agentB] },
+    });
+
+    expect(result.tasks[1]?.dependencies).toEqual([]);
+    expect(result.turnTaking?.pattern).toBe("round_robin");
+  });
+
+  it("rejects a workflow whose tasks have no acceptance criteria", () => {
+    expect(() =>
+      workflowSchema.parse({
+        tasks: [
+          {
+            key: "count-1",
+            title: "Count one",
+            instructions: "Report one",
+            acceptanceCriteria: [],
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+
+  it("rejects a turn-taking rule with a single Agent", () => {
+    expect(() =>
+      workflowSchema.parse({
+        tasks: [workflowTaskWithId()],
+        turnTaking: { agentIds: [randomUUID()] },
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a create-session input carrying a workflow", () => {
+    const result = createCoordinationSessionInputSchema.parse({
+      userTask: "Count one through ten",
+      participantAgentIds: [randomUUID(), randomUUID()],
+      workflow: {
+        tasks: [
+          {
+            key: "count-1",
+            title: "Count one",
+            instructions: "Report one",
+            acceptanceCriteria: [criterion],
+          },
+        ],
+      },
+    });
+
+    expect(result.workflow?.tasks).toHaveLength(1);
+  });
+
+  it("accepts repair and replan recovery decisions", () => {
+    expect(recoveryDecisionSchema.parse({ action: "repair", reason: "Fix the test" }))
+      .toMatchObject({ action: "repair" });
+    expect(recoveryDecisionSchema.parse({ action: "replan", reason: "No progress" }))
+      .toMatchObject({ action: "replan" });
+  });
+
+  it("accepts a task.repair_created coordination event", () => {
+    expect(
+      coordinationEventSchema.parse({
+        id: randomUUID(),
+        sessionId: randomUUID(),
+        taskId: randomUUID(),
+        type: "task.repair_created",
+        payload: {},
+        createdAt: new Date().toISOString(),
+      }),
+    ).toMatchObject({ type: "task.repair_created" });
+  });
 });
+
+function workflowTaskWithId() {
+  return {
+    key: "count-1",
+    title: "Count one",
+    instructions: "Report one",
+    acceptanceCriteria: [criterion],
+  };
+}

@@ -2,6 +2,7 @@ import { HttpError } from "../errors.js";
 import {
   plannerOutputSchema,
   type PlannerOutput,
+  type Workflow,
 } from "./contracts.js";
 import { HeuristicCollaborationGate } from "./collaboration-gate.js";
 import type {
@@ -9,7 +10,10 @@ import type {
   CoordinationPlanningRequest,
 } from "./ports.js";
 
-export function validatePlannerOutput(value: unknown): PlannerOutput {
+export function validatePlannerOutput(
+  value: unknown,
+  participantAgentIds?: string[],
+): PlannerOutput {
   const plan = plannerOutputSchema.parse(value);
   const tasksByKey = new Map(plan.tasks.map((task) => [task.key, task]));
   if (tasksByKey.size !== plan.tasks.length) {
@@ -45,6 +49,18 @@ export function validatePlannerOutput(value: unknown): PlannerOutput {
     visited.add(key);
   };
   for (const task of plan.tasks) visit(task.key);
+
+  if (participantAgentIds) {
+    const participants = new Set(participantAgentIds);
+    for (const task of plan.tasks) {
+      if (task.assignedAgentId && !participants.has(task.assignedAgentId)) {
+        throw new HttpError(
+          400,
+          `Task ${task.key} is fixed to unknown Agent ${task.assignedAgentId}`,
+        );
+      }
+    }
+  }
 
   return plan;
 }
@@ -97,6 +113,60 @@ export class FoundationCoordinationPlanner implements CoordinationPlanner {
   }
 }
 
+/**
+ * Compiles an explicit user-supplied workflow (structured ordering, fixed Agent
+ * assignments and turn-taking) into a validated DAG. The scheduler stays
+ * generic: this function only produces a {@link PlannerOutput}; it never
+ * mutates state. Explicit constraints are preserved, never silently relaxed.
+ */
+export function compileWorkflowPlan(
+  workflow: Workflow,
+  userTask: string,
+  participantAgentIds: string[],
+): PlannerOutput {
+  const participantSet = new Set(participantAgentIds);
+  const turnAgentIds = workflow.turnTaking?.agentIds ?? [];
+  for (const id of turnAgentIds) {
+    if (!participantSet.has(id)) {
+      throw new HttpError(400, "turnTaking.agentIds must all be participants");
+    }
+  }
+
+  const tasks = workflow.tasks.map((task, index) => {
+    const dependencies =
+      task.dependencies.length > 0
+        ? task.dependencies
+        : index === 0
+          ? []
+          : [workflow.tasks[index - 1]!.key];
+    const assignedAgentId =
+      task.assignedAgentId ??
+      (turnAgentIds.length > 0
+        ? turnAgentIds[index % turnAgentIds.length]
+        : undefined);
+    return {
+      key: task.key,
+      title: task.title,
+      instructions: task.instructions,
+      dependencies,
+      requiredCapabilities: task.requiredCapabilities,
+      acceptanceCriteria: task.acceptanceCriteria,
+      ...(assignedAgentId ? { assignedAgentId } : {}),
+    };
+  });
+
+  return validatePlannerOutput(
+    {
+      topology: tasks.every((task) => task.dependencies.length <= 1)
+        ? "sequential"
+        : "dag",
+      explanation: "User-constrained workflow compiled into a DAG.",
+      tasks,
+    },
+    participantAgentIds,
+  );
+}
+
 function heuristicTask(
   key: string,
   title: string,
@@ -132,6 +202,13 @@ export class HeuristicCoordinationPlanner implements CoordinationPlanner {
   private readonly gate = new HeuristicCollaborationGate();
 
   async plan(request: CoordinationPlanningRequest): Promise<PlannerOutput> {
+    if (request.workflow) {
+      return compileWorkflowPlan(
+        request.workflow,
+        request.userTask,
+        request.participantAgentIds,
+      );
+    }
     const taskContext =
       request.userTask.length > 9_000
         ? request.userTask.slice(0, 8_997) + "..."

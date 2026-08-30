@@ -132,10 +132,32 @@ describe("ClassificationRecoveryPolicy", () => {
     ).resolves.toMatchObject({ action: "retry" });
   });
 
-  it("requests approval for a test failure", async () => {
+  it("creates a repair Task for a test failure by default", async () => {
     await expect(
       policy.decide(makeClassificationRequest("test_failure", ["a"])),
+    ).resolves.toMatchObject({ action: "repair" });
+  });
+
+  it("requests approval for a test failure when configured", async () => {
+    const approvalPolicy = new ClassificationRecoveryPolicy({
+      testFailureAction: "request_approval",
+    });
+    await expect(
+      approvalPolicy.decide(makeClassificationRequest("test_failure", ["a"])),
     ).resolves.toMatchObject({ action: "request_approval" });
+  });
+
+  it("re-plans the unfinished subgraph on no-progress by default", async () => {
+    await expect(
+      policy.decide(makeClassificationRequest("no_progress", ["a"])),
+    ).resolves.toMatchObject({ action: "replan" });
+  });
+
+  it("stops on no-progress when configured", async () => {
+    const stopPolicy = new ClassificationRecoveryPolicy({ noProgressAction: "stop" });
+    await expect(
+      stopPolicy.decide(makeClassificationRequest("no_progress", ["a"])),
+    ).resolves.toMatchObject({ action: "stop" });
   });
 
   it("stops on an unrecoverable failure class", async () => {

@@ -8,6 +8,7 @@ import {
   type CoordinationSession,
   type CreateCoordinationSessionInput,
   type JsonValue,
+  type RecoveryDecision,
   type TaskAttempt,
   type TaskNode,
 } from "./contracts.js";
@@ -152,7 +153,9 @@ export class CoordinationService {
       await this.planner.plan({
         userTask: input.userTask,
         participantAgentIds: input.participantAgentIds,
+        ...(input.workflow ? { workflow: input.workflow } : {}),
       }),
+      input.participantAgentIds,
     );
     const candidates = this.catalog?.resolve(input.participantAgentIds);
     const team = validateTeamBuilderOutput(
@@ -167,9 +170,16 @@ export class CoordinationService {
     );
     const createdAt = this.clock.now();
     const taskIds = new Map(plan.tasks.map((task) => [task.key, this.ids.next()]));
+    // User-fixed assignments are authoritative and must not be overwritten by the
+    // Team Builder; dynamic assignments only fill the un-fixed remainder.
     const assignments = new Map(
-      team.assignments.map((assignment) => [assignment.taskKey, assignment.agentId]),
+      plan.tasks
+        .filter((task) => task.assignedAgentId)
+        .map((task) => [task.key, task.assignedAgentId!]),
     );
+    for (const assignment of team.assignments) {
+      assignments.set(assignment.taskKey, assignment.agentId);
+    }
     const session: CoordinationSession = {
       id: this.ids.next(),
       userTask: input.userTask,
@@ -189,6 +199,7 @@ export class CoordinationService {
     const tasks = plan.tasks.map<TaskNode>((task) => ({
       id: taskIds.get(task.key)!,
       sessionId: session.id,
+      planKey: task.key,
       title: task.title,
       instructions: task.instructions,
       dependencies: task.dependencies.map((key) => taskIds.get(key)!),
@@ -212,14 +223,20 @@ export class CoordinationService {
       explanation: plan.explanation,
       taskIds: tasks.map((task) => task.id),
     });
-    for (const assignment of team.assignments) {
+    for (const [taskKey, agentId] of assignments) {
       await this.emit(
         session.id,
         "agent.selected",
-        { taskKey: assignment.taskKey, explanation: team.explanation },
         {
-          taskId: taskIds.get(assignment.taskKey),
-          agentId: assignment.agentId,
+          taskKey,
+          source: taskIds.has(taskKey) && plan.tasks.some((task) => task.key === taskKey && task.assignedAgentId)
+            ? "user_constraint"
+            : "team_builder",
+          explanation: team.explanation,
+        },
+        {
+          taskId: taskIds.get(taskKey),
+          agentId,
         },
       );
     }
@@ -320,14 +337,19 @@ export class CoordinationService {
         const session = this.store.getSession(sessionId);
         if (session.status === "cancelled") return;
         const tasks = this.store.getTasks(sessionId);
-        if (tasks.every((task) => task.status === "succeeded")) {
+        const isTerminal = (task: TaskNode): boolean =>
+          task.status === "succeeded" || task.status === "superseded";
+        if (tasks.every(isTerminal)) {
           const completedAt = this.clock.now();
           await this.store.updateSession(sessionId, (stored) => {
             stored.status = "completed";
             stored.completedAt = completedAt;
           });
+          const succeededCount = tasks.filter(
+            (task) => task.status === "succeeded",
+          ).length;
           await this.emit(sessionId, "session.completed", {
-            completedTaskCount: tasks.length,
+            completedTaskCount: succeededCount,
           });
           return;
         }
@@ -780,6 +802,22 @@ export class CoordinationService {
       });
       return false;
     }
+    if (decision.action === "repair") {
+      if (this.store.getTasks(session.id).length >= session.budget.maxTasks) {
+        await this.failSession(session.id, "Repair would exceed the Task budget");
+        return false;
+      }
+      await this.repairTask(session, task, failedAttempt, decision);
+      return true;
+    }
+    if (decision.action === "replan") {
+      if (this.store.getTasks(session.id).length >= session.budget.maxTasks) {
+        await this.failSession(session.id, "Re-plan would exceed the Task budget");
+        return false;
+      }
+      await this.replanSession(session, task, decision);
+      return true;
+    }
 
     await this.store.updateTask(task.id, (stored) => {
       stored.status = "pending";
@@ -807,6 +845,147 @@ export class CoordinationService {
       },
     );
     return true;
+  }
+
+  private async repairTask(
+    session: CoordinationSession,
+    task: TaskNode,
+    failedAttempt: TaskAttempt,
+    decision: RecoveryDecision,
+  ): Promise<void> {
+    const now = this.clock.now();
+    const repairId = this.ids.next();
+    const evidence = (failedAttempt.errorMessage ?? decision.reason).slice(0, 4_000);
+    const repairTask: TaskNode = {
+      id: repairId,
+      sessionId: session.id,
+      planKey: task.planKey ? `${task.planKey}--repair` : undefined,
+      title: `${task.title} (repair)`,
+      instructions: [
+        task.instructions,
+        "",
+        "A previous attempt failed. Repair using this failure evidence:",
+        evidence,
+        "Original acceptance criteria still apply.",
+      ]
+        .join("\n")
+        .slice(0, 10_000),
+      dependencies: [...task.dependencies],
+      requiredCapabilities: [...task.requiredCapabilities],
+      acceptanceCriteria: task.acceptanceCriteria,
+      status: "pending",
+      ...(task.assignedAgentId ? { assignedAgentId: task.assignedAgentId } : {}),
+      attemptCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.store.createTasks(session.id, [repairTask]);
+    await this.store.rewireDependencies(session.id, task.id, repairId);
+    await this.store.updateTask(task.id, (stored) => {
+      stored.status = "superseded";
+      stored.updatedAt = now;
+    });
+    await this.store.updateSession(session.id, (stored) => {
+      stored.status = "executing";
+      delete stored.failureReason;
+    });
+    await this.emit(
+      session.id,
+      "task.repair_created",
+      {
+        reason: decision.reason,
+        originalTaskId: task.id,
+        repairTaskId: repairId,
+        failureEvidence: evidence,
+      },
+      {
+        taskId: task.id,
+        attemptId: failedAttempt.id,
+        ...(failedAttempt.agentId ? { agentId: failedAttempt.agentId } : {}),
+      },
+    );
+  }
+
+  private async replanSession(
+    session: CoordinationSession,
+    failedTask: TaskNode,
+    decision: RecoveryDecision,
+  ): Promise<void> {
+    const now = this.clock.now();
+    const plan = validatePlannerOutput(
+      await this.planner.plan({
+        userTask: session.userTask,
+        participantAgentIds: session.participantAgentIds,
+      }),
+      session.participantAgentIds,
+    );
+    const tasks = this.store.getTasks(session.id);
+    const existingByKey = new Map(
+      tasks.filter((task) => task.planKey).map((task) => [task.planKey, task]),
+    );
+    const planKeys = new Set(plan.tasks.map((task) => task.key));
+    const idByKey = new Map<string, string>();
+    for (const task of tasks) {
+      if (task.planKey) idByKey.set(task.planKey, task.id);
+    }
+    // Pre-mint ids for every newly planned Task before resolving dependencies so
+    // that both existing and new Tasks can be referenced regardless of order.
+    for (const planTask of plan.tasks) {
+      if (!idByKey.has(planTask.key)) idByKey.set(planTask.key, this.ids.next());
+    }
+
+    const newTasks: TaskNode[] = [];
+    for (const planTask of plan.tasks) {
+      const existing = existingByKey.get(planTask.key);
+      if (existing?.status === "succeeded") continue;
+      if (existing) {
+        await this.store.updateTask(existing.id, (stored) => {
+          stored.instructions = planTask.instructions;
+          stored.requiredCapabilities = planTask.requiredCapabilities;
+          stored.acceptanceCriteria = planTask.acceptanceCriteria;
+          stored.dependencies = planTask.dependencies.map((key) => idByKey.get(key)!);
+          stored.status = "pending";
+          stored.updatedAt = now;
+          if (planTask.assignedAgentId) stored.assignedAgentId = planTask.assignedAgentId;
+        });
+      } else {
+        const id = idByKey.get(planTask.key)!;
+        newTasks.push({
+          id,
+          sessionId: session.id,
+          planKey: planTask.key,
+          title: planTask.title,
+          instructions: planTask.instructions,
+          dependencies: planTask.dependencies.map((key) => idByKey.get(key)!),
+          requiredCapabilities: planTask.requiredCapabilities,
+          acceptanceCriteria: planTask.acceptanceCriteria,
+          status: "pending",
+          ...(planTask.assignedAgentId ? { assignedAgentId: planTask.assignedAgentId } : {}),
+          attemptCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    }
+    for (const task of tasks) {
+      if (task.status !== "succeeded" && task.planKey && !planKeys.has(task.planKey)) {
+        await this.store.updateTask(task.id, (stored) => {
+          stored.status = "superseded";
+          stored.updatedAt = now;
+        });
+      }
+    }
+    await this.store.createTasks(session.id, newTasks);
+    await this.store.updateSession(session.id, (stored) => {
+      stored.status = "executing";
+      delete stored.failureReason;
+    });
+    await this.emit(
+      session.id,
+      "plan.revised",
+      { reason: decision.reason, addedTaskCount: newTasks.length },
+      { taskId: failedTask.id },
+    );
   }
 
   private async failSession(sessionId: string, reason: string): Promise<void> {

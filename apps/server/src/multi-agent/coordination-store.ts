@@ -78,8 +78,52 @@ export class CoordinationStore {
     tasks: TaskNode[],
   ): Promise<void> {
     await this.store.mutate((database) => {
+      const ids = new Set<string>();
+      for (const task of tasks) {
+        if (ids.has(task.id)) throw new HttpError(409, "Coordination Task already exists");
+        ids.add(task.id);
+      }
+      for (const task of tasks) {
+        for (const dependencyId of task.dependencies) {
+          if (!ids.has(dependencyId)) {
+            throw new HttpError(409, "Task dependency does not exist in this Session");
+          }
+        }
+      }
       database.coordinationSessions.push(session);
       database.coordinationTasks.push(...tasks);
+    });
+  }
+
+  async createTasks(sessionId: string, tasks: TaskNode[]): Promise<void> {
+    await this.store.mutate((database) => {
+      if (!database.coordinationSessions.some((item) => item.id === sessionId)) {
+        throw new HttpError(404, "Coordination Session not found");
+      }
+      const existingIds = new Set(database.coordinationTasks.map((item) => item.id));
+      for (const task of tasks) {
+        if (existingIds.has(task.id)) {
+          throw new HttpError(409, "Coordination Task already exists");
+        }
+        existingIds.add(task.id);
+      }
+      database.coordinationTasks.push(...tasks);
+    });
+  }
+
+  async rewireDependencies(
+    sessionId: string,
+    fromTaskId: string,
+    toTaskId: string,
+  ): Promise<void> {
+    await this.store.mutate((database) => {
+      for (const task of database.coordinationTasks) {
+        if (task.sessionId === sessionId) {
+          task.dependencies = task.dependencies.map((id) =>
+            id === fromTaskId ? toTaskId : id,
+          );
+        }
+      }
     });
   }
 
