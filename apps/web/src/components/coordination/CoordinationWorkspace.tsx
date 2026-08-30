@@ -468,7 +468,11 @@ export function CoordinationWorkspace({
                 agentNames={agentNames}
                 executorMode={executorMode}
               />
-              <EventTimeline events={events} />
+              <EventTimeline
+                events={events}
+                tasks={tasks}
+                agentNames={agentNames}
+              />
               {metrics && <MetricsSummary metrics={metrics} />}
             </>
           ) : (

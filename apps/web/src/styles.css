@@ -2260,6 +2260,13 @@ textarea:focus {
   line-height: 1.45;
 }
 
+.coordination-timeline div > small {
+  margin-top: 4px;
+  color: #99988f;
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
 .coordination-empty-state {
   min-height: clamp(320px, calc(100dvh - 230px), 570px);
   display: flex;

@@ -1,11 +1,14 @@
-import type { CoordinationEvent } from "../../types";
-import { formatTime, shortId } from "./presentation";
+import type { CoordinationEvent, CoordinationTask } from "../../types";
+import { presentCoordinationEvent } from "./eventPresentation";
+import { formatTime } from "./presentation";
 
 interface EventTimelineProps {
   events: CoordinationEvent[];
+  tasks: CoordinationTask[];
+  agentNames: Map<string, string>;
 }
 
-export function EventTimeline({ events }: EventTimelineProps) {
+export function EventTimeline({ events, tasks, agentNames }: EventTimelineProps) {
   return (
     <article className="coordination-panel timeline-panel">
       <div className="panel-heading">
@@ -16,23 +19,22 @@ export function EventTimeline({ events }: EventTimelineProps) {
         <span>{events.length} events</span>
       </div>
       <ol className="coordination-timeline">
-        {events.map((event) => (
+        {events.map((event) => {
+          const presentation = presentCoordinationEvent(event, tasks, agentNames);
+          return (
           <li key={event.id}>
             <span
               className={`event-dot event-${event.type.split(".").at(-1)}`}
             />
             <time>{formatTime(event.createdAt)}</time>
             <div>
-              <strong>{event.type}</strong>
-              <span>
-                {event.taskId ? `Task ${shortId(event.taskId)} / ` : ""}
-                {Object.keys(event.payload).length > 0
-                  ? JSON.stringify(event.payload)
-                  : "State transition recorded"}
-              </span>
+              <strong>{presentation.title}</strong>
+              <span>{presentation.description}</span>
+              <small>{event.type}</small>
             </div>
           </li>
-        ))}
+          );
+        })}
       </ol>
     </article>
   );
