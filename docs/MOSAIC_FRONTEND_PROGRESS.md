@@ -14,6 +14,10 @@ Implemented frontend work:
   dependencies, WorkerOutput, and Artifact metadata.
 - Attempt and Artifact evidence, persisted Event timeline, and Metrics summary.
 - Loading, empty, mutation-error, active, and terminal Session presentation.
+- Stale-data preservation with explicit Session-list and detail refresh recovery.
+- Recovery evidence linking the failed Task, Attempt, failure class, decision,
+  reason, and replacement Agent when recorded.
+- Human approval and rejection controls backed by the accepted Session APIs.
 - Responsive layouts from wide desktop to 320 px mobile screens.
 - Dialog semantics, keyboard focus, selected-state semantics, reduced-motion
   support, long-content handling, and readable evidence typography.
@@ -39,16 +43,13 @@ Primary frontend files:
 
 Work that can continue before the other workstreams:
 
-- Typed recovery presentation with an explicit unavailable fallback.
-- Stale-refresh indicators, graph keyboard navigation, and identifier copy actions.
+- Identifier copy actions.
 - Single Agent, Static Team, and MOSAIC evaluation result format and comparison UI.
 - Deterministic demo fixtures, critical-flow browser tests, and recording material.
 - Final demonstration-focused visual refinement.
 
 Work that requires accepted contracts or evidence from Developers A and B:
 
-- Real retry, reassignment, repair, and recovery relationships.
-- Approval and rejection mutations.
+- Real repair-Task relationships when the backend records them.
 - Safe Artifact preview or download.
 - Final real-executor comparison data and recorded multi-Agent Session.
-

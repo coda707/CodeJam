@@ -106,7 +106,7 @@ or verification when the backend has not recorded it.
 | `executing` | Active Tasks and Agent ownership. | Stop. |
 | `verifying` | Output awaiting mechanical or semantic verification. | Stop. |
 | `recovering` | Failed Attempt and recovery decision in progress. | Stop. |
-| `waiting_approval` | Blocking reason and requested decision. | Approve or reject after the API exists. |
+| `waiting_approval` | Blocking reason and requested decision. | Approve or reject with a recorded reason. |
 | `completed` | Final verified result and terminal evidence. | No execution mutation. |
 | `failed` | Failure reason and last recovery evidence. | No execution mutation until an explicit restart contract exists. |
 | `cancelled` | Cancellation reason and preserved evidence. | No execution mutation. |
@@ -125,6 +125,8 @@ POST /api/coordination/sessions
 GET  /api/coordination/sessions/:id
 POST /api/coordination/sessions/:id/start
 POST /api/coordination/sessions/:id/stop
+POST /api/coordination/sessions/:id/approve
+POST /api/coordination/sessions/:id/reject
 GET  /api/coordination/sessions/:id/tasks
 GET  /api/coordination/sessions/:id/attempts
 GET  /api/coordination/sessions/:id/events
