@@ -12,7 +12,11 @@ import { JsonCoordinationEventSink } from "./multi-agent/event-store.js";
 import { FakeCoordinationExecutor } from "./multi-agent/fake-executor.js";
 import { AgentServiceCoordinationExecutor } from "./multi-agent/agent-executor-adapter.js";
 import { FileCoordinationArtifactStore } from "./multi-agent/artifact-store.js";
-import { MechanicalCoordinationVerifier } from "./multi-agent/verifier.js";
+import {
+  MechanicalCoordinationVerifier,
+  SimulationCoordinationVerifier,
+  parseVerificationCommand,
+} from "./multi-agent/verifier.js";
 import { HeuristicCoordinationPlanner } from "./multi-agent/planner.js";
 import { CapabilityTeamBuilder } from "./multi-agent/team-builder.js";
 import {
@@ -75,9 +79,16 @@ if (config.coordinationDemoFault !== "off") {
 const workspaceCommandRunner: CoordinationCommandRunner = {
   run(command: string, agentId: string, timeoutMs = 30_000): Promise<CommandExecutionResult> {
     const workspacePath = (service as AgentServiceType).getAgent(agentId).workspacePath;
-    const [bin, ...args] = command.trim().split(/\s+/);
+    const parsed = parseVerificationCommand(command);
+    if (!parsed) {
+      return Promise.resolve({
+        exitCode: -1,
+        stdout: "",
+        stderr: `Rejected unsafe or unsupported verification command: ${command}`,
+      });
+    }
     return new Promise((resolve) => {
-      execFile(bin!, args, {
+      execFile(parsed.executable, parsed.args, {
         cwd: workspacePath,
         timeout: timeoutMs,
         maxBuffer: 1_024 * 1_024,
@@ -105,11 +116,13 @@ const coordinationService = new CoordinationService(
       coordinationStore,
       (agentId) => service.getAgent(agentId).workspacePath,
     ),
-    verifier: new MechanicalCoordinationVerifier(
+    verifier:
       config.coordinationExecutor === "agent"
-        ? { commandRunner: workspaceCommandRunner }
-        : {},
-    ),
+        ? new MechanicalCoordinationVerifier({
+            commandRunner: workspaceCommandRunner,
+            requireStrongEvidence: true,
+          })
+        : new SimulationCoordinationVerifier(),
     planner: new HeuristicCoordinationPlanner(),
     teamBuilder: new CapabilityTeamBuilder(),
     recoveryPolicy:

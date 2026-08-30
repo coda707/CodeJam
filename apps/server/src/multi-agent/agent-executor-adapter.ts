@@ -31,12 +31,34 @@ export function buildWorkerPrompt(request: TaskExecutionRequest): string {
     taskId: dependency.task.id,
     title: dependency.task.title,
     output: dependency.attempt.workerOutput,
-    artifacts: dependency.artifacts.map((artifact) => ({
-      type: artifact.type,
-      sourcePath: artifact.sourcePath,
-      contentHash: artifact.contentHash,
-    })),
+    artifacts: dependency.artifacts.map((item) => {
+      // Accept legacy metadata-only contexts when replaying persisted tests;
+      // newly built contexts always include the verified Artifact content.
+      const artifact = "artifact" in item ? item.artifact : item;
+      const content = "artifact" in item ? item.content : null;
+      return {
+        type: artifact.type,
+        sourcePath: artifact.sourcePath,
+        contentHash: artifact.contentHash,
+        content: content?.content ?? null,
+      };
+    }),
   }));
+  const recovery = request.recoveryContext
+    ? {
+        sourceTask: {
+          id: request.recoveryContext.sourceTask.id,
+          title: request.recoveryContext.sourceTask.title,
+        },
+        failedAttempts: request.recoveryContext.failedAttempts.map((attempt) => ({
+          attemptId: attempt.id,
+          errorClass: attempt.errorClass,
+          errorMessage: attempt.errorMessage,
+          verificationEvidence: attempt.verificationEvidence,
+          priorOutput: attempt.workerOutput,
+        })),
+      }
+    : null;
   return [
     "You are executing one bounded task inside a MOSAIC coordination session.",
     "Complete the task in your existing Agent workspace.",
@@ -52,8 +74,11 @@ export function buildWorkerPrompt(request: TaskExecutionRequest): string {
     "",
     "Verified dependency context:",
     dependencies.length
-      ? truncate(JSON.stringify(dependencies), 12_000)
+      ? truncate(JSON.stringify(dependencies), 24_000)
       : "No dependencies.",
+    "",
+    "Recovery context from previous failed attempts:",
+    recovery ? truncate(JSON.stringify(recovery), 16_000) : "No previous failure.",
     "",
     "Acceptance criteria:",
     truncate(JSON.stringify(criteria), 8_000),

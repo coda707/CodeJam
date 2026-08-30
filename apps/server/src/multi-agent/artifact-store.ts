@@ -127,7 +127,9 @@ export class FileCoordinationArtifactStore
     const candidate = path.join(this.root, ...record.path.split("/"));
     const source = await realpath(candidate).catch(() => null);
     if (!source) return null;
-    const relative = path.relative(this.root, source);
+    const storageRoot = await realpath(this.root).catch(() => null);
+    if (!storageRoot) return null;
+    const relative = path.relative(storageRoot, source);
     if (
       !relative ||
       relative.startsWith(`..${path.sep}`) ||

@@ -108,13 +108,6 @@ function capabilityScore(candidate: AgentDescriptor, required: string[]): number
   return matched / required.length;
 }
 
-function selectionScore(candidate: AgentDescriptor, required: string[]): number {
-  let score = capabilityScore(candidate, required);
-  if (candidate.status === "busy") score -= 0.5;
-  if (candidate.status === "stopped" || candidate.status === "error") score -= 1;
-  return score;
-}
-
 /**
  * Capability-based Team Builder. Scores each candidate Agent against a Task's
  * `requiredCapabilities` using their name, description and instructions, with a
@@ -136,19 +129,34 @@ export class CapabilityTeamBuilder implements CoordinationTeamBuilder {
     }
 
     const byId = new Map(candidates.map((candidate) => [candidate.id, candidate]));
+    const readyIds = participantAgentIds.filter(
+      (id) => byId.get(id)?.status === "ready",
+    );
+    const eligibleIds = readyIds.length > 0 ? readyIds : participantAgentIds;
+    const load = new Map(participantAgentIds.map((id) => [id, 0]));
+    for (const task of request.plan.tasks) {
+      if (task.assignedAgentId) {
+        load.set(task.assignedAgentId, (load.get(task.assignedAgentId) ?? 0) + 1);
+      }
+    }
     const unfixed = request.plan.tasks.filter((task) => !task.assignedAgentId);
     const assignments = unfixed.map((task) => {
-      let bestAgentId = participantAgentIds[0];
+      let bestAgentId = eligibleIds[0];
+      let bestLoad = Number.POSITIVE_INFINITY;
       let bestScore = Number.NEGATIVE_INFINITY;
-      for (const agentId of participantAgentIds) {
+      for (const agentId of eligibleIds) {
         const candidate = byId.get(agentId);
         if (!candidate) continue;
-        const score = selectionScore(candidate, task.requiredCapabilities);
-        if (score > bestScore) {
+        const assigned = load.get(agentId) ?? 0;
+        const score = capabilityScore(candidate, task.requiredCapabilities);
+        // Balance independent work first, then use capability as the tie-break.
+        if (assigned < bestLoad || (assigned === bestLoad && score > bestScore)) {
+          bestLoad = assigned;
           bestScore = score;
           bestAgentId = agentId;
         }
       }
+      load.set(bestAgentId!, (load.get(bestAgentId!) ?? 0) + 1);
       return { taskKey: task.key, agentId: bestAgentId! };
     });
 
@@ -163,8 +171,8 @@ export class CapabilityTeamBuilder implements CoordinationTeamBuilder {
         assignments,
         explanation:
           candidates.length > 0 && !allFloor
-            ? "Tasks are assigned to the highest-scoring Agent by capability match."
-            : "Capability scores were inconclusive, so Tasks were assigned in participant order.",
+            ? "Tasks are evenly distributed across ready Agents, with capability match used as the tie-break."
+            : "Tasks were evenly assigned in participant order.",
       },
       request.plan,
       request.candidateAgentIds,

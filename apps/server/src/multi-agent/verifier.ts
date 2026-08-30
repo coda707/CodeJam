@@ -5,17 +5,37 @@ import type {
   VerificationResult,
 } from "./ports.js";
 
-const DEFAULT_COMMAND_ALLOWLIST = [
-  /^npm\s+(test|run\s+test)(\s|$)/i,
-  /^npm\s+run\s+build(\s|$)/i,
-  /^npx\s+vitest\s+run(\s|$)/i,
-  /^node\s+--test(\s|$)/i,
-];
+const UNSAFE_SHELL_SYNTAX = /[;&|><`$()\r\n]/;
+
+export interface VerificationCommand {
+  executable: "npm" | "npx" | "node";
+  args: string[];
+}
+
+/** Parse only argv-style test/build commands; no shell is involved. */
+export function parseVerificationCommand(command: string): VerificationCommand | null {
+  const normalized = command.trim();
+  if (!normalized || UNSAFE_SHELL_SYNTAX.test(normalized)) return null;
+  const tokens = normalized.split(/\s+/);
+  const [executable, ...args] = tokens;
+  const prefix = [executable, ...args.slice(0, 2)].join(" ").toLowerCase();
+  const allowed =
+    (executable === "npm" && args[0] === "test") ||
+    (executable === "npm" && args[0] === "run" && ["test", "build", "check"].includes(args[1] ?? "")) ||
+    (prefix === "npx vitest run") ||
+    (executable === "node" && args[0] === "--test");
+  if (!allowed) return null;
+  // Options and paths are passed directly to execFile. Quoting is deliberately
+  // unsupported so the displayed command exactly matches the executed argv.
+  if (args.some((arg) => !/^[A-Za-z0-9_./:@=,+-]+$/.test(arg))) return null;
+  return { executable: executable as VerificationCommand["executable"], args };
+}
 
 export interface MechanicalVerifierOptions {
   commandRunner?: CoordinationCommandRunner;
-  commandAllowlist?: RegExp[];
   commandTimeoutMs?: number;
+  /** Require the completion proof to contain a captured hash and a passing command. */
+  requireStrongEvidence?: boolean;
 }
 
 /**
@@ -27,13 +47,13 @@ export interface MechanicalVerifierOptions {
  */
 export class MechanicalCoordinationVerifier implements CoordinationVerifier {
   private readonly commandRunner: CoordinationCommandRunner | undefined;
-  private readonly allowlist: RegExp[];
   private readonly commandTimeoutMs: number;
+  private readonly requireStrongEvidence: boolean;
 
   constructor(options: MechanicalVerifierOptions = {}) {
     this.commandRunner = options.commandRunner;
-    this.allowlist = options.commandAllowlist ?? DEFAULT_COMMAND_ALLOWLIST;
     this.commandTimeoutMs = options.commandTimeoutMs ?? 30_000;
+    this.requireStrongEvidence = options.requireStrongEvidence ?? false;
   }
 
   async verify(request: VerificationRequest): Promise<VerificationResult> {
@@ -49,12 +69,20 @@ export class MechanicalCoordinationVerifier implements CoordinationVerifier {
 
     const failures: string[] = [];
     const commandEvidence: string[] = [];
+    const hasCommandCriterion = request.task.acceptanceCriteria.some(
+      (criterion) => criterion.kind === "command",
+    );
+    if (this.requireStrongEvidence && request.artifacts.length === 0) {
+      failures.push("Completion requires at least one captured file with a SHA-256 hash");
+    }
+    if (this.requireStrongEvidence && !hasCommandCriterion) {
+      failures.push("Completion requires at least one test command criterion");
+    }
     for (const criterion of request.task.acceptanceCriteria) {
       if (criterion.kind === "artifact") {
-        const satisfied =
-          criterion.value === "worker-output" ||
-          request.artifacts.some(
+        const satisfied = request.artifacts.some(
             (artifact) =>
+              (criterion.value === "any-file") ||
               artifact.type === criterion.value ||
               artifact.sourcePath === criterion.value,
           );
@@ -106,7 +134,7 @@ export class MechanicalCoordinationVerifier implements CoordinationVerifier {
         ],
       };
     }
-    if (!this.allowlist.some((pattern) => pattern.test(command))) {
+    if (!parseVerificationCommand(command)) {
       return {
         passed: false,
         evidence: [`command not allowlisted for verification: ${command}`],
@@ -138,5 +166,18 @@ export class MechanicalCoordinationVerifier implements CoordinationVerifier {
         ],
       };
     }
+  }
+}
+
+/** Explicitly non-production verifier used only by the deterministic fake executor. */
+export class SimulationCoordinationVerifier implements CoordinationVerifier {
+  async verify(request: VerificationRequest): Promise<VerificationResult> {
+    return request.output.unresolvedIssues.length === 0
+      ? { status: "accepted", evidence: ["Simulation output accepted"] }
+      : {
+          status: "rejected",
+          failureClass: "no_progress",
+          evidence: request.output.unresolvedIssues,
+        };
   }
 }

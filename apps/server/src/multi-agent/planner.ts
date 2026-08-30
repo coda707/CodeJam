@@ -174,18 +174,31 @@ function heuristicTask(
   dependencies: string[],
   requiredCapabilities: string[],
 ) {
+  const artifactPath = `mosaic/${key}.md`;
+  const testPath = `mosaic/${key}.test.js`;
   return {
     key,
     title,
-    instructions,
+    instructions: [
+      instructions,
+      `Write the material result to ${artifactPath}.`,
+      `Create ${testPath} to mechanically test this task's result.`,
+      "Run the acceptance command before returning WorkerOutput and report both files in artifactPaths.",
+    ].join("\n"),
     dependencies,
     requiredCapabilities,
     acceptanceCriteria: [
       {
-        id: `${key}-output`,
-        kind: "artifact" as const,
-        description: "Structured WorkerOutput is produced",
-        value: "worker-output",
+        id: `${key}-artifact`,
+        kind: "file_exists" as const,
+        description: "A real result file is captured and hashed",
+        value: artifactPath,
+      },
+      {
+        id: `${key}-test`,
+        kind: "command" as const,
+        description: "The task's mechanical test passes",
+        value: `node --test ${testPath}`,
       },
     ],
   };
@@ -194,9 +207,8 @@ function heuristicTask(
 /**
  * LLM-free planner driven by the {@link HeuristicCollaborationGate}. It turns
  * the gate's topology decision into a concrete DAG whose acceptance criteria
- * are all `artifact`/`worker-output`, so the deterministic Fake Executor path
- * still verifies cleanly. `file_exists`/`command` criteria belong to the real
- * Agent demo path and are intentionally not emitted here.
+ * include real captured files and mechanical commands. The fake executor uses
+ * a separate, explicitly labelled simulation verifier.
  */
 export class HeuristicCoordinationPlanner implements CoordinationPlanner {
   private readonly gate = new HeuristicCollaborationGate();
@@ -259,6 +271,13 @@ export class HeuristicCoordinationPlanner implements CoordinationPlanner {
               [],
               ["reporting"],
             ),
+            heuristicTask(
+              "integrate",
+              "Integrate and summarize the runnable result",
+              `Merge the verified analysis, implementation, and documentation artifacts into one coherent runnable result for: ${taskContext}`,
+              ["analyze", "implement", "document"],
+              ["integration", "verification"],
+            ),
           ],
         });
       case "dag":
@@ -288,9 +307,9 @@ export class HeuristicCoordinationPlanner implements CoordinationPlanner {
               ["review"],
             ),
             heuristicTask(
-              "verify",
-              "Verify and finalize",
-              `Verify the implementation and the review converge, then finalize: ${taskContext}`,
+              "integrate",
+              "Integrate, verify, and finalize",
+              `Merge the implementation and review artifacts, verify they converge, then finalize a runnable result: ${taskContext}`,
               ["implement", "review"],
               ["verification"],
             ),
@@ -316,9 +335,9 @@ export class HeuristicCoordinationPlanner implements CoordinationPlanner {
               ["delivery"],
             ),
             heuristicTask(
-              "verify",
-              "Verify the delivered result",
-              `Verify the delivered result for: ${taskContext}`,
+              "integrate",
+              "Integrate and verify the delivered result",
+              `Materialize the verified dependency Artifact content, then test and summarize the final runnable result for: ${taskContext}`,
               ["deliver"],
               ["verification"],
             ),

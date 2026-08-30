@@ -39,6 +39,7 @@ export interface Message {
   id: string;
   agentId: string;
   runId: string;
+  purpose: RunPurpose;
   role: MessageRole;
   content: string;
   createdAt: string;
@@ -54,6 +55,8 @@ export interface AgentRun {
   id: string;
   agentId: string;
   purpose: RunPurpose;
+  /** Thread created or resumed by this Run. Coordination Threads live here only. */
+  threadId: string | null;
   status: RunStatus;
   prompt: string;
   output: string | null;

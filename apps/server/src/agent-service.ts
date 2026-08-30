@@ -131,7 +131,9 @@ export class AgentService {
     this.getAgent(agentId);
     return this.store
       .snapshot()
-      .messages.filter((message) => message.agentId === agentId)
+      .messages.filter(
+        (message) => message.agentId === agentId && message.purpose === "playground",
+      )
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
@@ -147,7 +149,9 @@ export class AgentService {
     this.getAgent(agentId);
     return this.store
       .snapshot()
-      .runs.filter((run) => run.agentId === agentId)
+      .runs.filter(
+        (run) => run.agentId === agentId && run.purpose === "playground",
+      )
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   }
 
@@ -184,6 +188,7 @@ export class AgentService {
       id: runId,
       agentId,
       purpose: options.purpose ?? "playground",
+      threadId: null,
       status: "queued",
       prompt,
       output: null,
@@ -202,6 +207,7 @@ export class AgentService {
           id: randomUUID(),
           agentId,
           runId,
+          purpose: "playground",
           role: "user",
           content: prompt,
           createdAt: timestamp,
@@ -221,7 +227,7 @@ export class AgentService {
       if (message) database.messages.push(message);
       const snapshot = structuredClone(storedAgent);
       storedAgent.status = "busy";
-      storedAgent.lastError = null;
+      if (!isCoordination) storedAgent.lastError = null;
       storedAgent.updatedAt = timestamp;
       return snapshot;
     });
@@ -288,20 +294,29 @@ export class AgentService {
         storedRun.status = "completed";
         storedRun.output = result.output;
         storedRun.usage = result.usage;
+        storedRun.threadId = result.threadId;
         storedRun.completedAt = completedAt;
         if (!isCoordination) {
           database.messages.push({
             id: randomUUID(),
             agentId: agent.id,
             runId: run.id,
+            purpose: "playground",
             role: "assistant",
             content: result.output,
             createdAt: completedAt,
           });
           agent.codexThreadId = result.threadId;
         }
-        agent.status = "ready";
-        agent.lastError = null;
+        if (isCoordination) {
+          // A coordination Run borrows execution capacity but does not own the
+          // Playground-facing lifecycle or error state.
+          agent.status = agentAtStart.status;
+          agent.lastError = agentAtStart.lastError;
+        } else {
+          agent.status = "ready";
+          agent.lastError = null;
+        }
         agent.updatedAt = completedAt;
       });
     } catch (error) {
@@ -317,10 +332,13 @@ export class AgentService {
           storedRun.completedAt = completedAt;
         }
         if (agent) {
-          if (agent.status !== "stopped") {
+          if (isCoordination) {
+            agent.status = agentAtStart.status;
+            agent.lastError = agentAtStart.lastError;
+          } else if (agent.status !== "stopped") {
             agent.status = cancelled ? "ready" : "error";
+            agent.lastError = cancelled ? null : message;
           }
-          agent.lastError = cancelled ? null : message;
           agent.updatedAt = completedAt;
         }
       });
