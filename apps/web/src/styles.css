@@ -2339,6 +2339,333 @@ textarea:focus {
   margin-top: 16px;
 }
 
+.evaluation-workspace {
+  width: min(1320px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 14px;
+}
+
+.evaluation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.evaluation-header h1 {
+  margin: 7px 0 5px;
+  font-family: ui-rounded, "SF Pro Rounded", system-ui, sans-serif;
+  font-size: clamp(24px, 3vw, 38px);
+  letter-spacing: -0.04em;
+}
+
+.evaluation-header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.evaluation-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.evaluation-source {
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.source-real {
+  color: #277756;
+  background: #dcf2e9;
+}
+
+.source-fixture {
+  color: #8a650d;
+  background: #fff0b8;
+}
+
+.evaluation-provenance,
+.evaluation-incomplete {
+  padding: 12px 14px;
+  border-radius: 11px;
+  display: grid;
+  gap: 3px;
+  font-size: 11px;
+}
+
+.evaluation-provenance strong,
+.evaluation-incomplete strong {
+  font-size: 12px;
+}
+
+.evaluation-provenance small {
+  color: #777870;
+  font-size: 9px;
+}
+
+.provenance-real {
+  border: 1px solid #bddfce;
+  color: #275f49;
+  background: #edf8f3;
+}
+
+.provenance-fixture,
+.evaluation-incomplete {
+  border: 1px solid #e6c96f;
+  color: #6f570d;
+  background: #fff9e6;
+}
+
+.evaluation-strategies {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.evaluation-strategy,
+.evaluation-panel,
+.evaluation-import {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--paper);
+  box-shadow: 0 12px 36px rgba(43, 42, 38, 0.055);
+}
+
+.evaluation-strategy {
+  padding: 17px;
+}
+
+.strategy-mosaic {
+  border-color: #b9adef;
+  box-shadow: 0 16px 42px rgba(83, 61, 187, 0.1);
+}
+
+.evaluation-strategy-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.evaluation-strategy-heading span,
+.strategy-missing > span {
+  color: #898982;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.evaluation-strategy h2 {
+  margin: 4px 0 0;
+  font-size: 17px;
+}
+
+.evaluation-strategy-heading > strong {
+  color: #5b47bd;
+  font-size: 20px;
+}
+
+.evaluation-strategy dl {
+  margin: 15px 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.evaluation-strategy dl > div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f1efe9;
+}
+
+.evaluation-strategy dt,
+.evaluation-strategy dd {
+  margin: 0;
+}
+
+.evaluation-strategy dt {
+  color: #777870;
+  font-size: 9px;
+}
+
+.evaluation-strategy dd {
+  margin-top: 4px;
+  color: #444540;
+  font-size: 11px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.strategy-missing {
+  min-height: 210px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-style: dashed;
+  color: #777870;
+  text-align: center;
+}
+
+.strategy-missing p {
+  margin: 8px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.evaluation-panel {
+  padding: 18px 20px 20px;
+}
+
+.evaluation-runs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.evaluation-runs > article {
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid #e3e0d8;
+  border-radius: 10px;
+  background: #faf9f6;
+}
+
+.evaluation-runs > article > div {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.evaluation-runs strong,
+.evaluation-runs span {
+  font-size: 10px;
+}
+
+.evaluation-runs span {
+  color: #666760;
+  text-align: right;
+}
+
+.evaluation-runs p {
+  margin: 7px 0;
+  color: #666760;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+}
+
+.evaluation-runs ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #777870;
+  font-size: 9px;
+}
+
+.evaluation-runs code {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.evaluation-ablations {
+  display: grid;
+  gap: 6px;
+}
+
+.evaluation-ablations > div {
+  padding: 9px 10px;
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) minmax(180px, 2fr) repeat(3, minmax(90px, 1fr));
+  gap: 8px;
+  color: #666760;
+  background: #f1efe9;
+  font-size: 10px;
+}
+
+.evaluation-ablations strong {
+  color: #4d4e48;
+  overflow-wrap: anywhere;
+}
+
+.evaluation-empty-copy {
+  margin: 0;
+  color: #777870;
+  font-size: 11px;
+}
+
+.evaluation-import {
+  min-height: 330px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.evaluation-import-mark {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, #8d7cf1, #5a43c9);
+  font-size: 21px;
+  font-weight: 800;
+}
+
+.evaluation-import h2 {
+  margin: 16px 0 6px;
+}
+
+.evaluation-import p {
+  max-width: 560px;
+  margin: 0 0 18px;
+  color: #777870;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.evaluation-import input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+.evaluation-format h2 {
+  margin: 5px 0 12px;
+}
+
+.evaluation-format > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.evaluation-format > div span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #666760;
+  background: #edebe5;
+  font-size: 10px;
+}
+
 @media (max-width: 1200px) {
   .coordination-layout {
     grid-template-columns: 240px minmax(0, 1fr);
@@ -2365,6 +2692,10 @@ textarea:focus {
 
   .metrics-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .evaluation-strategies {
+    grid-template-columns: 1fr;
   }
 
 }
@@ -2397,6 +2728,20 @@ textarea:focus {
   .coordination-refresh-status {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .evaluation-header,
+  .evaluation-source-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .evaluation-runs {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-ablations > div {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
@@ -2439,6 +2784,15 @@ textarea:focus {
 }
 
 @media (max-width: 480px) {
+  .evaluation-strategy dl,
+  .evaluation-ablations > div {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-import {
+    padding: 24px 18px;
+  }
+
   .dependency-links {
     grid-template-columns: 1fr;
   }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, ApiError, setAuthToken } from "./api";
 import type { Agent, AgentRun, Message, SystemInfo } from "./types";
 import { CoordinationWorkspace } from "./components/coordination/CoordinationWorkspace";
+import { EvaluationWorkspace } from "./components/evaluation/EvaluationWorkspace";
 
 const starterPrompts = [
   "Create a small TypeScript CLI that prints a weather summary from sample JSON.",
@@ -37,7 +38,9 @@ function Spinner() {
 }
 
 export default function App() {
-  const [activeView, setActiveView] = useState<"agents" | "coordination">("agents");
+  const [activeView, setActiveView] = useState<
+    "agents" | "coordination" | "evaluation"
+  >("agents");
   const [agents, setAgents] = useState<Agent[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -385,6 +388,19 @@ export default function App() {
         </button>
 
         <button
+          className={"coordination-nav " + (activeView === "evaluation" ? "selected" : "")}
+          aria-current={activeView === "evaluation" ? "page" : undefined}
+          aria-label="MOSAIC evaluation"
+          onClick={() => setActiveView("evaluation")}
+        >
+          <span>E</span>
+          <div>
+            <strong>Evaluation</strong>
+            <small>Evidence comparison</small>
+          </div>
+        </button>
+
+        <button
           className={"coordination-nav " + (activeView === "coordination" ? "selected" : "")}
           aria-current={activeView === "coordination" ? "page" : undefined}
           aria-label="MOSAIC coordination"
@@ -452,6 +468,8 @@ export default function App() {
             agents={agents}
             executorMode={system?.coordinationExecutor ?? "fake"}
           />
+        ) : activeView === "evaluation" ? (
+          <EvaluationWorkspace />
         ) : (
           <>
         {!system?.arkConfigured || !system?.codexAvailable ? (
