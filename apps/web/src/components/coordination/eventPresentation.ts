@@ -19,6 +19,7 @@ const titles: Record<string, string> = {
   "task.failed": "Task failed",
   "task.retried": "Task scheduled for retry",
   "task.reassigned": "Task reassigned",
+  "task.repair_created": "Repair task created",
   "attempt.created": "Attempt created",
   "attempt.started": "Attempt started",
   "attempt.succeeded": "Attempt succeeded",
@@ -127,6 +128,13 @@ export function presentCoordinationEvent(
     case "task.reassigned":
       description = `${taskName} was reassigned to ${agentName}. ${reason ?? ""}`.trim();
       break;
+    case "task.repair_created": {
+      const repairTaskId = text(event, "repairTaskId");
+      const repairTask = tasks.find((item) => item.id === repairTaskId);
+      const repairName = repairTask?.title ?? (repairTaskId ? `Task ${shortId(repairTaskId)}` : "a repair Task");
+      description = `Superseded ${taskName} and created ${repairName} to carry the failure evidence. ${reason ?? ""}`.trim();
+      break;
+    }
     case "attempt.created":
       description = `A new Attempt was created for ${taskName}.`;
       break;

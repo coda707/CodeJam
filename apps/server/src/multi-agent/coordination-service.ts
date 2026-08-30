@@ -133,6 +133,10 @@ export class CoordinationService {
     return this.store.getArtifacts(sessionId);
   }
 
+  getArtifactContent(sessionId: string, artifactId: string) {
+    return this.artifacts.readArtifact(sessionId, artifactId);
+  }
+
   getMetrics(sessionId: string) {
     const session = this.store.getSession(sessionId);
     return projectCoordinationMetrics(

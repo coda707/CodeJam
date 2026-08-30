@@ -97,16 +97,23 @@ export interface CoordinationSession {
   failureReason?: string;
 }
 
+export type CoordinationAcceptanceCriterionKind =
+  | "command"
+  | "file_exists"
+  | "artifact"
+  | "manual_review";
+
 export interface CoordinationTask {
   id: string;
   sessionId: string;
+  planKey?: string;
   title: string;
   instructions: string;
   dependencies: string[];
   requiredCapabilities: string[];
   acceptanceCriteria: Array<{
     id: string;
-    kind: "command" | "file_exists" | "artifact" | "manual_review";
+    kind: CoordinationAcceptanceCriterionKind;
     description: string;
     value: string;
   }>;
@@ -115,6 +122,37 @@ export interface CoordinationTask {
   attemptCount: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface WorkflowTurnTaking {
+  agentIds: string[];
+  pattern: "round_robin";
+}
+
+export interface WorkflowTaskInput {
+  key: string;
+  title: string;
+  instructions: string;
+  dependencies?: string[];
+  requiredCapabilities?: string[];
+  acceptanceCriteria: Array<{
+    id: string;
+    kind: CoordinationAcceptanceCriterionKind;
+    description: string;
+    value: string;
+  }>;
+  assignedAgentId?: string;
+}
+
+export interface Workflow {
+  tasks: WorkflowTaskInput[];
+  turnTaking?: WorkflowTurnTaking;
+}
+
+export interface CreateCoordinationSessionInput {
+  userTask: string;
+  participantAgentIds?: string[];
+  workflow?: Workflow;
 }
 
 export interface CoordinationWorkerOutput {

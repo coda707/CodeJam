@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "name": "MOSAIC evaluation fixture (greet task)",
+  "generatedAt": "2026-08-30T14:00:30.431Z",
+  "source": {
+    "kind": "fixture",
+    "label": "Development sample — not measured execution"
+  },
+  "runs": [
+    {
+      "id": "fixture-single-1",
+      "taskName": "greet(name): plan + implement + document",
+      "completedAt": "2026-08-30T14:00:30.431Z",
+      "strategy": "single_agent",
+      "evidenceRefs": [
+        "fixture:single-agent"
+      ],
+      "metrics": {
+        "taskSucceeded": true,
+        "acceptanceTestsPassed": 0,
+        "acceptanceTestsTotal": 0,
+        "acceptanceCriteriaMet": 3,
+        "acceptanceCriteriaTotal": 3,
+        "totalTokens": 2400,
+        "latencyMs": 41000,
+        "agentCalls": 1,
+        "duplicateWorkCount": 0,
+        "failedAttempts": 0,
+        "recoveryAttempted": false,
+        "recoverySucceeded": null,
+        "humanInterventions": 0,
+        "coordinationOverheadMs": 0,
+        "failureLocalizationCorrect": null
+      }
+    },
+    {
+      "id": "fixture-static-1",
+      "taskName": "greet(name): plan + implement + document",
+      "completedAt": "2026-08-30T14:00:30.431Z",
+      "strategy": "static_team",
+      "evidenceRefs": [
+        "fixture:static-team"
+      ],
+      "metrics": {
+        "taskSucceeded": true,
+        "acceptanceTestsPassed": 0,
+        "acceptanceTestsTotal": 0,
+        "acceptanceCriteriaMet": 3,
+        "acceptanceCriteriaTotal": 3,
+        "totalTokens": 3100,
+        "latencyMs": 33000,
+        "agentCalls": 3,
+        "duplicateWorkCount": 0,
+        "failedAttempts": 0,
+        "recoveryAttempted": false,
+        "recoverySucceeded": null,
+        "humanInterventions": 0,
+        "coordinationOverheadMs": 1500,
+        "failureLocalizationCorrect": null
+      }
+    },
+    {
+      "id": "fixture-mosaic-1",
+      "taskName": "greet(name): plan + implement + document",
+      "completedAt": "2026-08-30T14:00:30.431Z",
+      "strategy": "mosaic",
+      "evidenceRefs": [
+        "fixture:mosaic"
+      ],
+      "metrics": {
+        "taskSucceeded": true,
+        "acceptanceTestsPassed": 1,
+        "acceptanceTestsTotal": 1,
+        "acceptanceCriteriaMet": 4,
+        "acceptanceCriteriaTotal": 4,
+        "totalTokens": 3600,
+        "latencyMs": 36000,
+        "agentCalls": 3,
+        "duplicateWorkCount": 0,
+        "failedAttempts": 0,
+        "recoveryAttempted": false,
+        "recoverySucceeded": null,
+        "humanInterventions": 0,
+        "coordinationOverheadMs": 2800,
+        "failureLocalizationCorrect": null
+      }
+    },
+    {
+      "id": "fixture-mosaic-without-recovery",
+      "taskName": "greet(name): plan + implement + document (with a failing test)",
+      "strategy": "mosaic",
+      "variant": "without_recovery",
+      "completedAt": "2026-08-30T14:00:30.431Z",
+      "evidenceRefs": [
+        "fixture:without-recovery"
+      ],
+      "metrics": {
+        "taskSucceeded": false,
+        "acceptanceTestsPassed": 0,
+        "acceptanceTestsTotal": 1,
+        "acceptanceCriteriaMet": 2,
+        "acceptanceCriteriaTotal": 4,
+        "totalTokens": 3400,
+        "latencyMs": 28000,
+        "agentCalls": 3,
+        "duplicateWorkCount": 1,
+        "failedAttempts": 1,
+        "recoveryAttempted": false,
+        "recoverySucceeded": null,
+        "humanInterventions": 0,
+        "coordinationOverheadMs": 2600,
+        "failureLocalizationCorrect": null
+      }
+    }
+  ]
+}

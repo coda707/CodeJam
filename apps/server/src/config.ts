@@ -18,8 +18,12 @@ const envSchema = z.object({
   CODEX_MAX_OUTPUT_BYTES: z.coerce.number().int().min(65_536).default(2_097_152),
   RUNTIME_PROVIDER: z.enum(["local-process", "container"]).default("local-process"),
   COORDINATION_EXECUTOR: z.enum(["fake", "agent"]).default("fake"),
+  COORDINATION_RECOVERY: z.enum(["on", "off"]).default("on"),
+  COORDINATION_TEST_FAILURE_ACTION: z
+    .enum(["repair", "request_approval"])
+    .default("repair"),
   COORDINATION_DEMO_FAULT: z
-    .enum(["off", "transient", "timeout", "test_failure", "capability"])
+    .enum(["off", "transient", "timeout", "test_failure", "capability", "no_progress"])
     .default("off"),
   CONTAINER_ENGINE: z.string().min(1).default("docker"),
   CONTAINER_RUNTIME_IMAGE: z.string().min(1).default("volc-agent-runtime:local"),
@@ -87,6 +91,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env) {
     codexMaxOutputBytes: env.CODEX_MAX_OUTPUT_BYTES,
     runtimeProvider: env.RUNTIME_PROVIDER,
     coordinationExecutor: env.COORDINATION_EXECUTOR,
+    coordinationRecovery: env.COORDINATION_RECOVERY,
+    coordinationTestFailureAction: env.COORDINATION_TEST_FAILURE_ACTION,
     coordinationDemoFault: env.COORDINATION_DEMO_FAULT,
     containerEngine: env.CONTAINER_ENGINE,
     containerRuntimeImage: env.CONTAINER_RUNTIME_IMAGE,

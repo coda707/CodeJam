@@ -1,6 +1,8 @@
 // Demo: human-in-the-loop approval on a test failure.
-// Prerequisites: a server is running with COORDINATION_DEMO_FAULT=test_failure.
+// Prerequisites: a server is running with a test failure that opts into approval
+// (by default a test failure spawns a repair Task instead).
 //   $env:COORDINATION_DEMO_FAULT = "test_failure"
+//   $env:COORDINATION_TEST_FAILURE_ACTION = "request_approval"
 //   npm run dev -w @launchpad/server
 // Then run: node scripts/demo-approval.mjs
 const baseUrl = (process.env.MOSAIC_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");

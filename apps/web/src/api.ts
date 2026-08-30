@@ -7,6 +7,7 @@ import type {
   CoordinationSession,
   CoordinationTask,
   CoordinationMetrics,
+  CreateCoordinationSessionInput,
   Message,
   SystemInfo,
 } from "./types";
@@ -91,10 +92,7 @@ export const api = {
   run: (id: string) => request<{ run: AgentRun }>("/api/runs/" + id),
   coordinationSessions: () =>
     request<{ sessions: CoordinationSession[] }>("/api/coordination/sessions"),
-  createCoordinationSession: (body: {
-    userTask: string;
-    participantAgentIds: string[];
-  }) =>
+  createCoordinationSession: (body: CreateCoordinationSessionInput) =>
     request<{ session: CoordinationSession; tasks: CoordinationTask[] }>(
       "/api/coordination/sessions",
       { method: "POST", body: JSON.stringify(body) },
@@ -136,6 +134,10 @@ export const api = {
   coordinationArtifacts: (id: string) =>
     request<{ artifacts: CoordinationArtifact[] }>(
       `/api/coordination/sessions/${id}/artifacts`,
+    ),
+  coordinationArtifactContent: (sessionId: string, artifactId: string) =>
+    request<{ content: string; sourcePath?: string; contentHash: string }>(
+      `/api/coordination/sessions/${sessionId}/artifacts/${artifactId}/content`,
     ),
   coordinationMetrics: (id: string) =>
     request<{ metrics: CoordinationMetrics }>(

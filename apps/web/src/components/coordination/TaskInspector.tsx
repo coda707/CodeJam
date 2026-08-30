@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { api } from "../../api";
 import type {
   CoordinationArtifact,
   CoordinationAttempt,
@@ -7,6 +8,13 @@ import type {
 import { formatNumber } from "./presentation";
 import { CopyIdentifier } from "./CopyIdentifier";
 import { buildTaskInspectorModel } from "./taskInspectorModel";
+
+interface ArtifactPreview {
+  artifactId: string;
+  loading: boolean;
+  content: string | null;
+  error: string | null;
+}
 
 interface TaskInspectorProps {
   taskId: string | null;
@@ -36,6 +44,30 @@ export function TaskInspector({
       ),
     [agentNames, artifacts, attempts, taskId, tasks],
   );
+  const [preview, setPreview] = useState<ArtifactPreview | null>(null);
+
+  const previewArtifact = async (artifact: CoordinationArtifact) => {
+    setPreview({ artifactId: artifact.id, loading: true, content: null, error: null });
+    try {
+      const result = await api.coordinationArtifactContent(
+        artifact.sessionId,
+        artifact.id,
+      );
+      setPreview({
+        artifactId: artifact.id,
+        loading: false,
+        content: result.content,
+        error: null,
+      });
+    } catch (reason) {
+      setPreview({
+        artifactId: artifact.id,
+        loading: false,
+        content: null,
+        error: reason instanceof Error ? reason.message : String(reason),
+      });
+    }
+  };
 
   if (!model) {
     return (
@@ -258,6 +290,24 @@ export function TaskInspector({
                   </dd>
                 </div>
               </dl>
+              <div className="artifact-preview">
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => void previewArtifact(artifact)}
+                  disabled={preview?.artifactId === artifact.id && preview.loading}
+                >
+                  {preview?.artifactId === artifact.id && preview.loading
+                    ? "Loading…"
+                    : "Preview"}
+                </button>
+                {preview?.artifactId === artifact.id && preview.error && (
+                  <p className="task-inspector-error">{preview.error}</p>
+                )}
+                {preview?.artifactId === artifact.id && preview.content !== null && (
+                  <pre className="artifact-content">{preview.content}</pre>
+                )}
+              </div>
             </article>
           ))}
           {model.artifacts.length === 0 && <p>No Artifacts recorded.</p>}

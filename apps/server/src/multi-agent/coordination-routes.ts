@@ -68,6 +68,20 @@ export function registerCoordinationRoutes(
     return { artifacts: service.getArtifacts(id) };
   });
 
+  app.get(
+    "/api/coordination/sessions/:id/artifacts/:artifactId/content",
+    async (request, reply) => {
+      const { id, artifactId } = z
+        .strictObject({ id: z.string().uuid(), artifactId: z.string().uuid() })
+        .parse(request.params);
+      const content = await service.getArtifactContent(id, artifactId);
+      if (!content) {
+        return reply.code(404).send({ error: "Artifact content unavailable" });
+      }
+      return content;
+    },
+  );
+
   app.get("/api/coordination/sessions/:id/metrics", async (request) => {
     const { id } = sessionIdParams.parse(request.params);
     return { metrics: service.getMetrics(id) };

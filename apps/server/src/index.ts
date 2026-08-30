@@ -15,7 +15,10 @@ import { FileCoordinationArtifactStore } from "./multi-agent/artifact-store.js";
 import { MechanicalCoordinationVerifier } from "./multi-agent/verifier.js";
 import { HeuristicCoordinationPlanner } from "./multi-agent/planner.js";
 import { CapabilityTeamBuilder } from "./multi-agent/team-builder.js";
-import { ClassificationRecoveryPolicy } from "./multi-agent/recovery-policy.js";
+import {
+  ClassificationRecoveryPolicy,
+  StopCoordinationRecoveryPolicy,
+} from "./multi-agent/recovery-policy.js";
 import { FaultInjectingExecutor } from "./multi-agent/demo-faults.js";
 import type { AgentService as AgentServiceType } from "./agent-service.js";
 import type {
@@ -59,6 +62,11 @@ if (config.coordinationDemoFault !== "off") {
       taskTitleMatch: "Implement",
       failureClass: "agent_capability_mismatch" as const,
       error: "Simulated capability mismatch for the reassignment demo",
+    },
+    no_progress: {
+      taskTitleMatch: "Research",
+      failureClass: "no_progress" as const,
+      error: "Simulated no-progress failure for the replan demo",
     },
   }[config.coordinationDemoFault];
   coordinationExecutor = new FaultInjectingExecutor(coordinationExecutor, demoFault);
@@ -104,7 +112,12 @@ const coordinationService = new CoordinationService(
     ),
     planner: new HeuristicCoordinationPlanner(),
     teamBuilder: new CapabilityTeamBuilder(),
-    recoveryPolicy: new ClassificationRecoveryPolicy(),
+    recoveryPolicy:
+      config.coordinationRecovery === "off"
+        ? new StopCoordinationRecoveryPolicy()
+        : new ClassificationRecoveryPolicy({
+            testFailureAction: config.coordinationTestFailureAction,
+          }),
     catalog: {
       resolve: (ids) =>
         ids.map((id) => {

@@ -69,4 +69,25 @@ describe("event presentation", () => {
     );
     expect(result.description).not.toContain("{");
   });
+
+  it("explains a repair Task and links the superseded original", () => {
+    const repairTask: CoordinationTask = {
+      ...task,
+      id: "task-repair-id",
+      title: "Verify the result (repair)",
+    };
+    const result = presentCoordinationEvent(
+      makeEvent("task.repair_created", {
+        reason: "Acceptance command failed",
+        originalTaskId: task.id,
+        repairTaskId: repairTask.id,
+      }),
+      [task, repairTask],
+      new Map(),
+    );
+
+    expect(result.title).toBe("Repair task created");
+    expect(result.description).toContain("Verify the result (repair)");
+    expect(result.description).toContain("Superseded");
+  });
 });

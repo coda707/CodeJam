@@ -246,6 +246,8 @@ export class AgentService {
       codexSandboxMode: this.config.codexSandboxMode,
       runtimeProvider: this.config.runtimeProvider,
       coordinationExecutor: this.config.coordinationExecutor,
+      coordinationRecovery: this.config.coordinationRecovery,
+      coordinationDemoFault: this.config.coordinationDemoFault,
       containerEngine:
         this.config.runtimeProvider === "container"
           ? this.config.containerEngine

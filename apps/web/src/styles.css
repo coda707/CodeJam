@@ -2190,6 +2190,30 @@ textarea:focus {
   line-height: 1.5;
 }
 
+.artifact-preview {
+  margin-top: 8px;
+}
+
+.artifact-preview .button {
+  font-size: 11px;
+  padding: 4px 10px;
+}
+
+.artifact-content {
+  margin: 8px 0 0;
+  padding: 10px;
+  max-height: 280px;
+  overflow: auto;
+  border-radius: 7px;
+  background: #262823;
+  color: #d6d8d0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .worker-output {
   margin-top: 9px;
   padding: 8px;

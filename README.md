@@ -205,7 +205,9 @@ cp deploy/volcengine/terraform.tfvars.example \
 | `APP_AUTH_TOKEN` | Empty on loopback | Shared demo token; use 24+ random characters remotely. |
 | `RUNTIME_PROVIDER` | `local-process` | `container` for disposable local Runtime containers. |
 | `COORDINATION_EXECUTOR` | `fake` | `agent` to execute MOSAIC Tasks through existing Agents. |
-| `COORDINATION_DEMO_FAULT` | `off` | `transient` / `timeout` / `test_failure` / `capability` for one-shot demo faults. |
+| `COORDINATION_RECOVERY` | `on` | `off` to stop on the first failure (used for the `without_recovery` ablation). |
+| `COORDINATION_TEST_FAILURE_ACTION` | `repair` | `request_approval` to pause on an acceptance failure instead of repairing. |
+| `COORDINATION_DEMO_FAULT` | `off` | `transient` / `timeout` / `test_failure` / `capability` / `no_progress` for one-shot demo faults. |
 | `COORDINATION_ARTIFACT_ROOT` | Below `APP_DATA_DIR` | Session-scoped captured Artifact files. |
 | `CODEX_SANDBOX_MODE` | `workspace-write` | Codex inner sandbox mode. |
 | `CODEX_TIMEOUT_MS` | `600000` | Maximum duration of one turn. |
@@ -255,8 +257,14 @@ TypeScript owns state, limits, leases, and recovery:
   with atomic `pending → ready → leased` transitions (no double execution).
 - **Mechanical verifier** checks WorkerOutput and, in Agent mode, allowlisted
   commands (`npm test`, `npm run build`, …) in the producer workspace.
-- **Classification recovery** maps a failure class to retry, reassign to a
-  different Agent, human approval, or stop — bounded by `maxAttemptsPerTask`.
+- **Classification recovery** maps a failure class to a targeted action: retry
+  transient/malformed failures, reassign timeouts and capability mismatches,
+  spawn a **repair** Task for acceptance failures, **re-plan** the unfinished
+  subgraph on no-progress, pause for **human approval** when opted in, or stop —
+  all bounded by `maxAttemptsPerTask`.
+- **Structured constraint workflows** accept a `workflow` field (ordered tasks,
+  explicit `assignedAgentId`, and `turnTaking` round-robin) so the team builder
+  never overrides a user's assignment.
 - **Safe artifact capture** writes files with path/symlink/size guards and
   sha256 content hashing.
 - **Event + metrics projection** persists the whole chain for the timeline,
@@ -277,11 +285,17 @@ npm run dev                # server on :3000, web on :5173
 ```
 
 - `Build several independent modules` produces a **parallel** DAG.
-- To watch a failure auto-recover: restart with `COORDINATION_DEMO_FAULT=transient`
-  (PowerShell: `$env:COORDINATION_DEMO_FAULT = "transient"`), then run
-  `node scripts/demo-recovery.mjs`.
-- To watch human approval: restart with `COORDINATION_DEMO_FAULT=test_failure`,
-  then run `node scripts/demo-approval.mjs` (or Approve/Reject from the UI).
+- To watch a failure auto-recover (retry/reassign): restart with
+  `COORDINATION_DEMO_FAULT=transient`, then run `node scripts/demo-recovery.mjs`.
+- To watch self-healing (repair / replan): restart with
+  `COORDINATION_DEMO_FAULT=test_failure` or `COORDINATION_DEMO_FAULT=no_progress`,
+  then run `node scripts/demo-repair-replan.mjs repair` or `… replan`.
+- To watch human approval: restart with `COORDINATION_DEMO_FAULT=test_failure`
+  and `COORDINATION_TEST_FAILURE_ACTION=request_approval`, then run
+  `node scripts/demo-approval.mjs` (or Approve/Reject from the UI).
+- To compare strategies and export evidence, run `node scripts/evaluate.mjs`
+  (or `node scripts/evaluate.mjs --fixture` for a schema-valid sample without a
+  server).
 
 ### Demo with real Agents
 
@@ -298,6 +312,11 @@ node scripts/integration-real-agents.mjs
   so allowlisted command verification runs only when a plan requests a `command`.
 - `manual_review` criteria are not yet semantically reviewed by an LLM.
 - Artifacts are captured only when an Agent actually reports `artifactPaths`.
+- Re-plan (on `no_progress`) re-derives a plan from `userTask`; it does not
+  replay the original `workflow` shape, so a structured workflow that hits
+  no-progress is re-planned heuristically rather than reconstructed task-for-task.
+- Playground isolation is forward-only: runs from before the `purpose` field
+  existed are treated as Playground and are not rewritten.
 
 ## Validation
 
@@ -315,6 +334,7 @@ With the application running, verify the MOSAIC browser/API path with
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [MOSAIC architecture (one page)](docs/MOSAIC_ARCHITECTURE.md)
+- [MOSAIC demo guide + recording checklist](docs/MOSAIC_DEMO_GUIDE.md)
 - [Local POC](docs/LOCAL_POC.md)
 - [Deployment](docs/DEPLOYMENT.md)
 - [Hackathon extension guide](docs/HACKATHON_EXTENSION_GUIDE.md)

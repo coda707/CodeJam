@@ -122,11 +122,21 @@ export type ArtifactCaptureResult =
   | { status: "captured"; artifacts: CoordinationArtifact[] }
   | { status: "rejected"; failureClass: FailureClass; error: string };
 
+export interface ArtifactContent {
+  content: string;
+  sourcePath?: string;
+  contentHash: string;
+}
+
 export interface CoordinationArtifactRepository {
   capture(
     request: TaskExecutionRequest,
     output: WorkerOutput,
   ): Promise<ArtifactCaptureResult>;
+  readArtifact(
+    sessionId: string,
+    artifactId: string,
+  ): Promise<ArtifactContent | null>;
 }
 
 export interface CoordinationEventSink {

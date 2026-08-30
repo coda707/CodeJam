@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { JsonStore } from "../store.js";
-import { FileCoordinationArtifactStore } from "./artifact-store.js";
+import { FileCoordinationArtifactStore, redactSecrets } from "./artifact-store.js";
 import { CoordinationStore } from "./coordination-store.js";
 import {
   makeCoordinationSession,
@@ -130,5 +130,85 @@ describe("FileCoordinationArtifactStore", () => {
       failureClass: "unsafe_action",
     });
     expect(fixture.store.getArtifacts(fixture.session.id)).toEqual([]);
+  });
+
+  it("reads a captured Artifact back with its hash and secret redaction", async () => {
+    const fixture = await makeFixture();
+    const source = path.join(fixture.workspace, "reports", "result.txt");
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(source, "apiKey=sk-ark-0123456789abcdef result", "utf8");
+
+    const captured = await fixture.repository.capture(
+      {
+        session: fixture.session,
+        task: fixture.task,
+        attempt: fixture.attempt,
+        dependencyContext: [],
+      },
+      {
+        summary: "Produced a report",
+        artifactPaths: ["reports/result.txt"],
+        evidence: [],
+        unresolvedIssues: [],
+      },
+    );
+    if (captured.status !== "captured") throw new Error("capture failed");
+    const artifact = captured.artifacts[0]!;
+
+    await expect(
+      fixture.repository.readArtifact(fixture.session.id, artifact.id),
+    ).resolves.toEqual({
+      content: "apiKey=[REDACTED_KEY] result",
+      sourcePath: "reports/result.txt",
+      contentHash: artifact.contentHash,
+    });
+  });
+
+  it("does not reveal content for an unknown or foreign Artifact", async () => {
+    const fixture = await makeFixture();
+    const foreign = await makeFixture();
+
+    await expect(
+      fixture.repository.readArtifact(fixture.session.id, randomUUID()),
+    ).resolves.toBeNull();
+    // A real Artifact from another Session must not be readable through this one.
+    const source = path.join(fixture.workspace, "reports", "result.txt");
+    await mkdir(path.dirname(source), { recursive: true });
+    await writeFile(source, "private", "utf8");
+    const captured = await fixture.repository.capture(
+      {
+        session: fixture.session,
+        task: fixture.task,
+        attempt: fixture.attempt,
+        dependencyContext: [],
+      },
+      {
+        summary: "Captured",
+        artifactPaths: ["reports/result.txt"],
+        evidence: [],
+        unresolvedIssues: [],
+      },
+    );
+    if (captured.status !== "captured") throw new Error("capture failed");
+    await expect(
+      foreign.repository.readArtifact(fixture.session.id, captured.artifacts[0]!.id),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("redactSecrets", () => {
+  it("redacts keys, bearer tokens, apiKey assignments and private keys", () => {
+    const input = [
+      "Authorization: Bearer abc123secret_token_xyz",
+      "ARK_API_KEY=sk-ark-abcdefgh12345678",
+      "private: -----BEGIN RSA PRIVATE KEY-----body-----END RSA PRIVATE KEY-----",
+    ].join("\n");
+    const output = redactSecrets(input);
+
+    expect(output).toContain("Bearer [REDACTED_TOKEN]");
+    expect(output).toContain("[REDACTED_KEY]");
+    expect(output).toContain("[REDACTED_PRIVATE_KEY]");
+    expect(output).not.toContain("abc123secret_token_xyz");
+    expect(output).not.toContain("sk-ark-abcdefgh12345678");
   });
 });

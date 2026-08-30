@@ -1,9 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 import { lstat, mkdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { HttpError } from "../errors.js";
 import type { CoordinationArtifact, FailureClass } from "./contracts.js";
 import type {
   ArtifactCaptureResult,
+  ArtifactContent,
   CoordinationArtifactRepository,
   TaskExecutionRequest,
 } from "./ports.js";
@@ -32,6 +34,10 @@ export class NoopCoordinationArtifactRepository
 {
   async capture(): Promise<ArtifactCaptureResult> {
     return { status: "captured", artifacts: [] };
+  }
+
+  async readArtifact(): Promise<ArtifactContent | null> {
+    return null;
   }
 }
 
@@ -102,6 +108,43 @@ export class FileCoordinationArtifactStore
         error: (error instanceof Error ? error.message : String(error)).slice(0, 2_000),
       };
     }
+  }
+
+  async readArtifact(
+    sessionId: string,
+    artifactId: string,
+  ): Promise<ArtifactContent | null> {
+    let records: CoordinationArtifact[];
+    try {
+      records = this.store.getArtifacts(sessionId);
+    } catch (error) {
+      if (error instanceof HttpError && error.statusCode === 404) return null;
+      throw error;
+    }
+    const record = records.find((artifact) => artifact.id === artifactId);
+    if (!record || record.sessionId !== sessionId || !record.path) return null;
+
+    const candidate = path.join(this.root, ...record.path.split("/"));
+    const source = await realpath(candidate).catch(() => null);
+    if (!source) return null;
+    const relative = path.relative(this.root, source);
+    if (
+      !relative ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    ) {
+      return null;
+    }
+    const details = await lstat(source).catch(() => null);
+    if (!details || details.isSymbolicLink() || !details.isFile()) return null;
+    if (details.size > MAX_ARTIFACT_BYTES) return null;
+
+    const content = (await readFile(source, "utf8")).slice(0, MAX_ARTIFACT_BYTES);
+    return {
+      content: redactSecrets(content),
+      ...(record.sourcePath ? { sourcePath: record.sourcePath } : {}),
+      contentHash: record.contentHash,
+    };
   }
 
   private async prepareArtifact(
@@ -175,6 +218,25 @@ export class FileCoordinationArtifactStore
       },
     };
   }
+}
+
+/**
+ * Redacts common secret shapes from Artifact content before it is ever exposed
+ * through the evidence UI or served back to a browser. This is a conservative
+ * text-level guard; it is not a substitute for never persisting secrets.
+ */
+export function redactSecrets(content: string): string {
+  return content
+    .replace(/\b(sk|sk-ant|sk-ark|ark)-[A-Za-z0-9_-]{8,}\b/g, "[REDACTED_KEY]")
+    .replace(/\b(Bearer\s+)[A-Za-z0-9._-]{8,}\b/gi, "$1[REDACTED_TOKEN]")
+    .replace(
+      /(api[_-]?key\s*[:=]\s*)[^\s"'`,;]+/gi,
+      "$1[REDACTED_KEY]",
+    )
+    .replace(
+      /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g,
+      "[REDACTED_PRIVATE_KEY]",
+    );
 }
 
 function inferArtifactType(relativePath: string): CoordinationArtifact["type"] {
