@@ -1509,10 +1509,105 @@ textarea:focus {
   background: #dcf2e9;
 }
 
+.coordination-status.status-waiting_approval {
+  color: #765c0a;
+  background: #f7e8a8;
+}
+
 .coordination-status.status-failed,
 .coordination-status.status-cancelled {
   color: #a94444;
   background: #f6dfdc;
+}
+
+.recovery-panel {
+  padding: 18px 20px;
+  border-color: #e4d79d;
+  background: #fffdf4;
+}
+
+.recovery-action {
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #66500e;
+  background: #f7e8a8;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.recovery-context {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.recovery-context > div {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #ece5c5;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.recovery-context span,
+.recovery-context strong,
+.recovery-context small {
+  display: block;
+}
+
+.recovery-context span {
+  color: #89806b;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.recovery-context strong {
+  margin-top: 5px;
+  color: #4b4c47;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.recovery-context small {
+  margin-top: 4px;
+  color: #777064;
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.recovery-reason {
+  margin: 12px 0 0;
+  color: #625b4c;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.approval-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e6ddba;
+}
+
+.approval-form label {
+  display: block;
+  margin-bottom: 6px;
+  color: #575851;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.approval-form textarea {
+  min-height: 82px;
+}
+
+.approval-form > div {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .graph-panel,
@@ -2188,6 +2283,10 @@ textarea:focus {
   .metrics-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .recovery-context {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1120px) {
@@ -2238,6 +2337,10 @@ textarea:focus {
   }
 
   .evidence-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recovery-context {
     grid-template-columns: 1fr;
   }
 

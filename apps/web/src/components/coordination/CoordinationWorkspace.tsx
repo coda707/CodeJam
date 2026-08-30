@@ -25,6 +25,7 @@ import { reconcileSelectedTaskId } from "./graphModel";
 import { MetricsSummary } from "./MetricsSummary";
 import { activeSessionStatuses } from "./presentation";
 import { RefreshStatus } from "./RefreshStatus";
+import { RecoveryPanel } from "./RecoveryPanel";
 import { SessionCommandBar } from "./SessionCommandBar";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
@@ -341,6 +342,33 @@ export function CoordinationWorkspace({
     setDetailReloadVersion((value) => value + 1);
   };
 
+  const resolveApproval = async (
+    decision: "approve" | "reject",
+    reason: string,
+  ) => {
+    if (!displayedSession) return;
+    const sessionId = displayedSession.id;
+    setBusy(true);
+    setWorkspaceError(null);
+    try {
+      const result = await (decision === "approve"
+        ? api.approveCoordinationSession(sessionId, reason)
+        : api.rejectCoordinationSession(sessionId, reason));
+      applySessionState(result.session);
+      await refreshDetails(sessionId);
+    } catch (reason) {
+      if (selectedIdRef.current === sessionId) {
+        setWorkspaceError({
+          message: errorMessage(reason),
+          scope: "action",
+          sessionId,
+        });
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const retrySessions = async () => {
     setSessionsLoading(true);
     setWorkspaceError(null);
@@ -423,6 +451,16 @@ export function CoordinationWorkspace({
                   onSelectTask={setSelectedTaskId}
                 />
               </div>
+              <RecoveryPanel
+                session={displayedSession}
+                tasks={tasks}
+                attempts={attempts}
+                events={events}
+                agentNames={agentNames}
+                busy={busy}
+                onApprove={(reason) => resolveApproval("approve", reason)}
+                onReject={(reason) => resolveApproval("reject", reason)}
+              />
               <EvidenceWorkspace
                 attempts={attempts}
                 artifacts={artifacts}

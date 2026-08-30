@@ -111,6 +111,16 @@ export const api = {
       `/api/coordination/sessions/${id}/stop`,
       { method: "POST" },
     ),
+  approveCoordinationSession: (id: string, reason: string) =>
+    request<{ session: CoordinationSession }>(
+      `/api/coordination/sessions/${id}/approve`,
+      { method: "POST", body: JSON.stringify({ reason }) },
+    ),
+  rejectCoordinationSession: (id: string, reason: string) =>
+    request<{ session: CoordinationSession }>(
+      `/api/coordination/sessions/${id}/reject`,
+      { method: "POST", body: JSON.stringify({ reason }) },
+    ),
   coordinationTasks: (id: string) =>
     request<{ tasks: CoordinationTask[] }>(
       `/api/coordination/sessions/${id}/tasks`,

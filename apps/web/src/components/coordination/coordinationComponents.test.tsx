@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import type {
   CoordinationArtifact,
   CoordinationAttempt,
+  CoordinationEvent,
   CoordinationSession,
   CoordinationTask,
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
 import { RefreshStatus } from "./RefreshStatus";
+import { RecoveryPanel } from "./RecoveryPanel";
 import { SessionRail } from "./SessionRail";
 import { TaskGraph } from "./TaskGraph";
 import { TaskInspector } from "./TaskInspector";
@@ -66,6 +68,68 @@ describe("coordination components", () => {
     expect(markup).toContain("Showing last confirmed Session data");
     expect(markup).toContain("Evidence may be stale");
     expect(markup).toContain("Retry refresh");
+  });
+
+  it("renders an evidence-backed approval decision", () => {
+    const task = makeTask("review");
+    const session: CoordinationSession = {
+      id: "session-approval-id",
+      userTask: "Review the failed result",
+      status: "waiting_approval",
+      topology: "review",
+      participantAgentIds: ["agent-id"],
+      rootTraceId: "trace-id",
+      budget: {
+        maxTasks: 4,
+        maxConcurrentTasks: 2,
+        maxAttemptsPerTask: 2,
+        maxAgentCalls: 8,
+        maxEvents: 100,
+      },
+      failureReason: "Acceptance criteria failed",
+      createdAt: timestamp,
+    };
+    const attempt: CoordinationAttempt = {
+      id: "attempt-failed-id",
+      sessionId: session.id,
+      taskId: task.id,
+      agentId: "agent-id",
+      status: "failed",
+      errorClass: "test_failure",
+      errorMessage: "Verification command failed",
+      createdAt: timestamp,
+    };
+    const decision: CoordinationEvent = {
+      id: "event-recovery-id",
+      sessionId: session.id,
+      taskId: task.id,
+      attemptId: attempt.id,
+      type: "recovery.decided",
+      payload: {
+        action: "request_approval",
+        reason: "Acceptance criteria failed",
+        nextAgentId: null,
+      },
+      createdAt: timestamp,
+    };
+    const markup = renderToStaticMarkup(
+      <RecoveryPanel
+        session={session}
+        tasks={[task]}
+        attempts={[attempt]}
+        events={[decision]}
+        agentNames={new Map([["agent-id", "Reviewer"]])}
+        busy={false}
+        onApprove={async () => undefined}
+        onReject={async () => undefined}
+      />,
+    );
+
+    expect(markup).toContain("Human decision required");
+    expect(markup).toContain("attempt-failed-id");
+    expect(markup).toContain("test_failure");
+    expect(markup).toContain("Approve and Continue");
+    expect(markup).toContain("Reject and Stop");
   });
 
   it("renders selectable graph nodes with readable dependency text", () => {
