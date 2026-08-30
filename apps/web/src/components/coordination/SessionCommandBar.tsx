@@ -1,5 +1,6 @@
 import type { CoordinationSession } from "../../types";
-import { activeSessionStatuses, shortId } from "./presentation";
+import { activeSessionStatuses } from "./presentation";
+import { CopyIdentifier } from "./CopyIdentifier";
 
 interface SessionCommandBarProps {
   session: CoordinationSession;
@@ -21,7 +22,9 @@ export function SessionCommandBar({
   return (
     <article className="coordination-panel session-summary">
       <div>
-        <span className="eyebrow">Session {shortId(session.id)}</span>
+        <span className="eyebrow">
+          Session <CopyIdentifier label="Session ID" value={session.id} compact />
+        </span>
         <h2>{session.userTask}</h2>
         <div className="session-metadata">
           <span>{session.topology}</span>

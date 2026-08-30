@@ -5,6 +5,7 @@ import type {
   SystemInfo,
 } from "../../types";
 import { formatNumber, shortId } from "./presentation";
+import { CopyIdentifier } from "./CopyIdentifier";
 
 interface EvidenceWorkspaceProps {
   attempts: CoordinationAttempt[];
@@ -66,9 +67,18 @@ export function EvidenceWorkspace({
                       ? ` / ${formatNumber(tokens)} tokens`
                       : ""}
                   </p>
+                  <CopyIdentifier label="Attempt ID" value={attempt.id} compact />
+                  {attempt.runId && (
+                    <CopyIdentifier label="Run ID" value={attempt.runId} compact />
+                  )}
                   {attempt.retryOfAttemptId && (
-                    <small>
-                      Retry of {shortId(attempt.retryOfAttemptId)}
+                    <small className="evidence-retry-link">
+                      Retry of{" "}
+                      <CopyIdentifier
+                        label="source Attempt ID"
+                        value={attempt.retryOfAttemptId}
+                        compact
+                      />
                     </small>
                   )}
                   {attempt.errorMessage && <small>{attempt.errorMessage}</small>}
@@ -95,8 +105,18 @@ export function EvidenceWorkspace({
                   {artifact.type} / sha256:
                   {artifact.contentHash.slice(0, 12)}...
                 </p>
+                <CopyIdentifier label="Artifact ID" value={artifact.id} compact />
                 <small>
-                  Attempt {artifact.attemptId ? shortId(artifact.attemptId) : "unknown"}
+                  Attempt{" "}
+                  {artifact.attemptId ? (
+                    <CopyIdentifier
+                      label="Attempt ID"
+                      value={artifact.attemptId}
+                      compact
+                    />
+                  ) : (
+                    "unknown"
+                  )}
                 </small>
               </article>
             ))}

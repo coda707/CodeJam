@@ -6,6 +6,7 @@ import type {
   CoordinationTask,
 } from "../../types";
 import { shortId } from "./presentation";
+import { CopyIdentifier } from "./CopyIdentifier";
 
 interface RecoveryPanelProps {
   session: CoordinationSession;
@@ -80,14 +81,20 @@ export function RecoveryPanel({
         <div>
           <span>Task</span>
           <strong>{task?.title ?? "Session-level recovery"}</strong>
-          {task && <small>{task.id}</small>}
+          {task && <CopyIdentifier label="Task ID" value={task.id} compact />}
         </div>
         <div>
           <span>Failed Attempt</span>
           <strong>
             {failedAttempt ? shortId(failedAttempt.id) : "Not recorded"}
           </strong>
-          {failedAttempt && <small>{failedAttempt.id}</small>}
+          {failedAttempt && (
+            <CopyIdentifier
+              label="failed Attempt ID"
+              value={failedAttempt.id}
+              compact
+            />
+          )}
         </div>
         <div>
           <span>Failure class</span>
@@ -101,7 +108,9 @@ export function RecoveryPanel({
               ? agentNames.get(nextAgentId) ?? shortId(nextAgentId)
               : "Current assignment"}
           </strong>
-          {nextAgentId && <small>{nextAgentId}</small>}
+          {nextAgentId && (
+            <CopyIdentifier label="recovery Agent ID" value={nextAgentId} compact />
+          )}
         </div>
       </div>
 

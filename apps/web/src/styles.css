@@ -358,6 +358,52 @@ button:focus-visible {
   letter-spacing: 0.14em;
 }
 
+.copy-identifier {
+  min-width: 0;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.copy-identifier code {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.copy-identifier button {
+  flex: 0 0 auto;
+  padding: 2px 5px;
+  border: 1px solid #d9d5ca;
+  border-radius: 5px;
+  color: #666760;
+  background: #fff;
+  font: inherit;
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.copy-identifier button:hover {
+  border-color: #9f90e7;
+  color: #5b47bd;
+}
+
+.eyebrow .copy-identifier {
+  margin: 0 0 0 3px;
+  display: inline-flex;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.evidence-list > article > .copy-identifier {
+  margin-top: 6px;
+}
+
+.evidence-retry-link .copy-identifier {
+  display: inline-flex;
+}
+
 .main {
   min-width: 0;
   min-height: 100vh;

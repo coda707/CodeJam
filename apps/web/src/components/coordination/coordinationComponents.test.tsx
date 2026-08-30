@@ -8,6 +8,7 @@ import type {
   CoordinationTask,
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
+import { CopyIdentifier } from "./CopyIdentifier";
 import { RefreshStatus } from "./RefreshStatus";
 import { RecoveryPanel } from "./RecoveryPanel";
 import { SessionRail } from "./SessionRail";
@@ -41,6 +42,17 @@ function makeTask(id: string, dependencies: string[] = []): CoordinationTask {
 }
 
 describe("coordination components", () => {
+  it("exposes complete identifiers through copy actions", () => {
+    const value = "attempt-complete-id";
+    const markup = renderToStaticMarkup(
+      <CopyIdentifier label="Attempt ID" value={value} compact />,
+    );
+
+    expect(markup).toContain("attempt-");
+    expect(markup).toContain(`aria-label="Copy Attempt ID ${value}"`);
+    expect(markup).toContain(`title="${value}"`);
+  });
+
   it("renders an actionable recovery state after a Session load fails", () => {
     const markup = renderToStaticMarkup(
       <CoordinationEmptyState

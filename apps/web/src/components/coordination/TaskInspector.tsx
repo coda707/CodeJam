@@ -5,6 +5,7 @@ import type {
   CoordinationTask,
 } from "../../types";
 import { formatNumber } from "./presentation";
+import { CopyIdentifier } from "./CopyIdentifier";
 import { buildTaskInspectorModel } from "./taskInspectorModel";
 
 interface TaskInspectorProps {
@@ -72,7 +73,7 @@ export function TaskInspector({
         <div>
           <dt>Task ID</dt>
           <dd>
-            <code>{task.id}</code>
+            <CopyIdentifier label="Task ID" value={task.id} />
           </dd>
         </div>
         <div>
@@ -81,7 +82,7 @@ export function TaskInspector({
             {task.assignedAgentId ? (
               <>
                 <strong>{model.assignedAgentName ?? "Unknown Agent"}</strong>
-                <code>{task.assignedAgentId}</code>
+                <CopyIdentifier label="Agent ID" value={task.assignedAgentId} />
               </>
             ) : (
               "Unassigned"
@@ -154,14 +155,14 @@ export function TaskInspector({
                   <div>
                     <dt>Attempt</dt>
                     <dd>
-                      <code>{attempt.id}</code>
+                      <CopyIdentifier label="Attempt ID" value={attempt.id} />
                     </dd>
                   </div>
                   {attempt.agentId && (
                     <div>
                       <dt>Agent</dt>
                       <dd>
-                        <code>{attempt.agentId}</code>
+                        <CopyIdentifier label="Agent ID" value={attempt.agentId} />
                       </dd>
                     </div>
                   )}
@@ -169,7 +170,7 @@ export function TaskInspector({
                     <div>
                       <dt>Run</dt>
                       <dd>
-                        <code>{attempt.runId}</code>
+                        <CopyIdentifier label="Run ID" value={attempt.runId} />
                       </dd>
                     </div>
                   )}
@@ -177,7 +178,10 @@ export function TaskInspector({
                     <div>
                       <dt>Retry of</dt>
                       <dd>
-                        <code>{attempt.retryOfAttemptId}</code>
+                        <CopyIdentifier
+                          label="source Attempt ID"
+                          value={attempt.retryOfAttemptId}
+                        />
                       </dd>
                     </div>
                   )}
@@ -233,21 +237,24 @@ export function TaskInspector({
                 <div>
                   <dt>Artifact</dt>
                   <dd>
-                    <code>{artifact.id}</code>
+                    <CopyIdentifier label="Artifact ID" value={artifact.id} />
                   </dd>
                 </div>
                 {artifact.attemptId && (
                   <div>
                     <dt>Attempt</dt>
                     <dd>
-                      <code>{artifact.attemptId}</code>
+                      <CopyIdentifier
+                        label="Attempt ID"
+                        value={artifact.attemptId}
+                      />
                     </dd>
                   </div>
                 )}
                 <div>
                   <dt>SHA-256</dt>
                   <dd>
-                    <code>{artifact.contentHash}</code>
+                    <CopyIdentifier label="Artifact SHA-256" value={artifact.contentHash} />
                   </dd>
                 </div>
               </dl>
