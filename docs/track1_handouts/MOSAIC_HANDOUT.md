@@ -57,6 +57,7 @@ The existing Agent CRUD, lifecycle, Playground, persistence, Codex execution and
 - Support sequential and parallel dependencies.
 - Persist Task, Attempt, Artifact and Event records.
 - Execute real Agent Runs through the existing `AgentService`.
+- Isolate MOSAIC Runs, messages and Codex Threads from the Agent's Playground conversation.
 - Show Agent/Task/Run/Attempt relationships.
 - Inject one controlled failure and recover through retry or reassignment.
 - Verify at least one result using a real command/test.
@@ -124,6 +125,11 @@ Codex CLI + Ark + isolated Agent workspaces
 
 - Implement the coordinator in TypeScript inside the existing Fastify server.
 - Keep the current Agent execution path; the coordinator calls it as a worker adapter.
+- Give every Run an authoritative purpose (`playground` or `coordination`) and
+  persist the Session, Task and Attempt relationship for coordination Runs.
+- Coordination execution must not read or replace the Agent's Playground
+  `codexThreadId`. Use a fresh or explicitly coordination-scoped Thread and pass
+  dependencies through verified Task context.
 - Store coordination metadata through the existing serialized JSON persistence for the POC.
 - Store large artifacts on disk and only metadata/hash/path in JSON.
 - Validate all LLM control outputs with Zod before changing system state.
@@ -297,7 +303,27 @@ once, and that the recorded Agent IDs alternate on every Attempt.
 - Every loop has `maxTurns`, `maxAttempts`, deadline and no-progress limits.
 - Cancellation must propagate Session -> Task -> Attempt -> Agent Run.
 - After failure/cancellation, no Agent may remain permanently busy.
+- MOSAIC Worker prompts and outputs must never appear as ordinary Playground
+  messages, and a later Playground turn must not resume a MOSAIC Codex Thread.
+- Coordination Runs remain queryable as audit evidence even when excluded from
+  the Playground transcript.
+- Legacy records must be filtered or migrated by their Attempt/Run relationship
+  without deleting genuine Playground history.
 - Controlled demo faults must be explicit, one-shot and recorded as fault injection.
+
+### Playground and coordination isolation acceptance
+
+1. Run a real MOSAIC Session using an existing Agent.
+2. Open that Agent in the Playground and send a normal greeting.
+3. The Playground transcript contains only manual Playground turns; no Worker
+   prompt, dependency context, acceptance criteria or structured WorkerOutput is
+   rendered there.
+4. The greeting continues the previous Playground Thread, or starts a new
+   Playground Thread when none exists. It never resumes a coordination Thread.
+5. The MOSAIC workspace still exposes the coordination Run, Attempt, WorkerOutput
+   and evidence with their identifiers.
+6. Tests assert that coordination execution leaves the Agent's Playground
+   `codexThreadId` unchanged.
 
 ### Failure policy
 

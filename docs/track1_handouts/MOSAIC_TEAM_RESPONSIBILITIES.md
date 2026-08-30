@@ -57,6 +57,8 @@ Make MOSAIC decide, plan and coordinate correctly. A owns the canonical contract
 ### Responsibilities
 
 - Define Session, Task, Attempt, Artifact, Event and Budget contracts.
+- Define authoritative Run purpose and coordination-link contracts so APIs can
+  distinguish Playground traffic from MOSAIC execution.
 - Implement Session state transitions.
 - Implement Collaboration Gate and its explanation.
 - Validate Planner-generated DAGs, including cycles, limits and dependency references.
@@ -109,6 +111,8 @@ apps/server/src/types.ts               # final merge owner
 - Stop reaches all active Tasks and Attempts.
 - Session reaches a correct terminal state after success or unrecoverable failure.
 - Unit tests cover state transitions, DAG validation and idempotency.
+- APIs never rely on frontend-only filtering to separate Playground and
+  coordination history.
 
 ### Must not do
 
@@ -147,6 +151,10 @@ Make planned work execute through real Codex Agents, produce trustworthy artifac
 ### Responsibilities
 
 - Adapt Task Nodes to the existing `AgentService` Run path.
+- Execute MOSAIC work in a fresh or coordination-scoped Codex Thread without
+  reading or replacing the Agent's Playground Thread ID.
+- Persist coordination Run evidence without appending Worker prompts or outputs
+  to the ordinary Playground transcript.
 - Provide a completion signal or bounded wait for Agent Runs.
 - Support multiple Agents executing independent Tasks concurrently.
 - Convert worker output/files into bounded, hashed Artifact records.
@@ -197,6 +205,8 @@ apps/server/src/types.ts                  # contract changes through A
 - A real verifier command determines pass/fail.
 - Failure/cancellation leaves no Agent permanently busy.
 - Tests cover success, timeout, malformed output, verification failure and reassignment.
+- Tests prove that a MOSAIC Run cannot contaminate a later Playground turn and
+  that the Playground Thread ID remains unchanged.
 
 ### Must not do
 
@@ -240,6 +250,8 @@ Make the coordination process observable, measurable and understandable, and tur
 - Expose events, artifacts and metrics query routes in coordination with A.
 - Implement Session creation/selection in the React UI.
 - Implement DAG, timeline, Attempt relationship, evidence and metrics views.
+- Render only authoritative Playground messages in the Playground while keeping
+  coordination Runs inspectable from the MOSAIC evidence views.
 - Display user-constrained versus dynamically selected Task assignments from
   backend evidence without inferring assignment authority in the browser.
 - Show terminal status and a working stop control.
@@ -279,6 +291,8 @@ demo fixtures, scripts and video assets
 ### Acceptance criteria
 
 - UI uses real API data and does not infer authoritative state locally.
+- A Playground opened after a MOSAIC Session does not render Worker prompts,
+  dependency context, acceptance criteria or structured WorkerOutput.
 - A viewer can identify each Agent, Task, Attempt and Run.
 - The original failed Attempt and recovery Attempt are visibly linked.
 - Timeline explains why recovery occurred.
