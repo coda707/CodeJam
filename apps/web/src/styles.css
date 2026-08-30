@@ -1582,13 +1582,14 @@ textarea:focus {
   text-transform: uppercase;
 }
 
-.recovery-context {
+.recovery-flow {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
   gap: 8px;
+  align-items: stretch;
 }
 
-.recovery-context > div {
+.recovery-flow > section {
   min-width: 0;
   padding: 10px;
   border: 1px solid #ece5c5;
@@ -1596,13 +1597,13 @@ textarea:focus {
   background: rgba(255, 255, 255, 0.72);
 }
 
-.recovery-context span,
-.recovery-context strong,
-.recovery-context small {
+.recovery-flow span,
+.recovery-flow strong,
+.recovery-flow small {
   display: block;
 }
 
-.recovery-context span {
+.recovery-flow section > span:first-child {
   color: #89806b;
   font-size: 9px;
   font-weight: 800;
@@ -1610,25 +1611,24 @@ textarea:focus {
   letter-spacing: 0.06em;
 }
 
-.recovery-context strong {
+.recovery-flow strong {
   margin-top: 5px;
   color: #4b4c47;
   font-size: 11px;
   overflow-wrap: anywhere;
 }
 
-.recovery-context small {
+.recovery-flow small {
   margin-top: 4px;
   color: #777064;
   font-size: 9px;
   overflow-wrap: anywhere;
 }
 
-.recovery-reason {
-  margin: 12px 0 0;
-  color: #625b4c;
-  font-size: 11px;
-  line-height: 1.55;
+.recovery-flow-arrow {
+  align-self: center;
+  color: #9b8952;
+  font-size: 17px;
 }
 
 .approval-form {
@@ -2337,9 +2337,6 @@ textarea:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .recovery-context {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 1120px) {
@@ -2393,8 +2390,13 @@ textarea:focus {
     grid-template-columns: 1fr;
   }
 
-  .recovery-context {
+  .recovery-flow {
     grid-template-columns: 1fr;
+  }
+
+  .recovery-flow-arrow {
+    justify-self: center;
+    transform: rotate(90deg);
   }
 
   .metrics-grid {

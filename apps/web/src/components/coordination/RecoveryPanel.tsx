@@ -43,13 +43,26 @@ export function RecoveryPanel({
   onReject,
 }: RecoveryPanelProps) {
   const [reason, setReason] = useState("");
-  const failedAttempt = findLatest(attempts, (attempt) =>
-    ["failed", "timed_out"].includes(attempt.status),
-  );
   const decision = findLatest(
     events,
     (event) => event.type === "recovery.decided",
   );
+  const failedAttempt =
+    attempts.find((attempt) => attempt.id === decision?.attemptId) ??
+    findLatest(attempts, (attempt) =>
+      ["failed", "timed_out"].includes(attempt.status),
+    );
+  const followUpAttempt = failedAttempt
+    ? attempts.find((attempt) => attempt.retryOfAttemptId === failedAttempt.id)
+    : undefined;
+  const humanDecision = decision
+    ? findLatest(
+        events,
+        (event) =>
+          event.createdAt >= decision.createdAt &&
+          ["session.approved", "session.rejected"].includes(event.type),
+      )
+    : undefined;
   const task = tasks.find(
     (item) => item.id === (decision?.taskId ?? failedAttempt?.taskId),
   );
@@ -57,6 +70,20 @@ export function RecoveryPanel({
   const decisionReason = payloadText(decision, "reason");
   const nextAgentId = payloadText(decision, "nextAgentId");
   const waiting = session.status === "waiting_approval";
+  const outcomeTitle = waiting
+    ? "Awaiting human decision"
+    : humanDecision?.type === "session.rejected"
+      ? "Rejected and stopped"
+      : followUpAttempt
+        ? `Follow-up ${followUpAttempt.status}`
+        : humanDecision?.type === "session.approved"
+          ? "Approved; execution resumed"
+          : session.status === "failed"
+            ? "Session failed"
+            : session.status === "completed"
+              ? "Session completed"
+              : "Recovery in progress";
+  const outcomeReason = payloadText(humanDecision, "reason");
 
   if (!waiting && !decision && !failedAttempt) return null;
 
@@ -77,17 +104,10 @@ export function RecoveryPanel({
         {action && <span className="recovery-action">{action}</span>}
       </div>
 
-      <div className="recovery-context">
-        <div>
-          <span>Task</span>
+      <div className="recovery-flow" aria-label="Recovery evidence chain">
+        <section>
+          <span>1 · Failure</span>
           <strong>{task?.title ?? "Session-level recovery"}</strong>
-          {task && <CopyIdentifier label="Task ID" value={task.id} compact />}
-        </div>
-        <div>
-          <span>Failed Attempt</span>
-          <strong>
-            {failedAttempt ? shortId(failedAttempt.id) : "Not recorded"}
-          </strong>
           {failedAttempt && (
             <CopyIdentifier
               label="failed Attempt ID"
@@ -95,28 +115,35 @@ export function RecoveryPanel({
               compact
             />
           )}
-        </div>
-        <div>
-          <span>Failure class</span>
-          <strong>{failedAttempt?.errorClass ?? "Unavailable"}</strong>
+          <small>{failedAttempt?.errorClass ?? "Failure class unavailable"}</small>
           {failedAttempt?.errorMessage && <small>{failedAttempt.errorMessage}</small>}
-        </div>
-        <div>
-          <span>Recovery target</span>
-          <strong>
-            {nextAgentId
-              ? agentNames.get(nextAgentId) ?? shortId(nextAgentId)
-              : "Current assignment"}
-          </strong>
+        </section>
+        <span className="recovery-flow-arrow" aria-hidden="true">→</span>
+        <section>
+          <span>2 · Decision</span>
+          <strong>{action?.replaceAll("_", " ") ?? "Decision unavailable"}</strong>
+          <small>{decisionReason ?? session.failureReason ?? "No reason recorded."}</small>
           {nextAgentId && (
             <CopyIdentifier label="recovery Agent ID" value={nextAgentId} compact />
           )}
-        </div>
+          {nextAgentId && (
+            <small>{agentNames.get(nextAgentId) ?? shortId(nextAgentId)}</small>
+          )}
+        </section>
+        <span className="recovery-flow-arrow" aria-hidden="true">→</span>
+        <section>
+          <span>3 · Outcome</span>
+          <strong>{outcomeTitle}</strong>
+          {followUpAttempt && (
+            <CopyIdentifier
+              label="follow-up Attempt ID"
+              value={followUpAttempt.id}
+              compact
+            />
+          )}
+          {outcomeReason && <small>{outcomeReason}</small>}
+        </section>
       </div>
-
-      <p className="recovery-reason">
-        {decisionReason ?? session.failureReason ?? "No recovery reason recorded."}
-      </p>
 
       {waiting && (
         <form className="approval-form" onSubmit={submitApproval}>

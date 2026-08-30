@@ -144,6 +144,86 @@ describe("coordination components", () => {
     expect(markup).toContain("Reject and Stop");
   });
 
+  it("links a failed Attempt to its authoritative recovery outcome", () => {
+    const task = makeTask("verify");
+    const session: CoordinationSession = {
+      id: "session-recovered-id",
+      userTask: "Recover the verification",
+      status: "completed",
+      topology: "review",
+      participantAgentIds: ["agent-id"],
+      rootTraceId: "trace-id",
+      budget: {
+        maxTasks: 4,
+        maxConcurrentTasks: 2,
+        maxAttemptsPerTask: 2,
+        maxAgentCalls: 8,
+        maxEvents: 100,
+      },
+      createdAt: timestamp,
+      completedAt: timestamp,
+    };
+    const failed: CoordinationAttempt = {
+      id: "attempt-original-failure",
+      sessionId: session.id,
+      taskId: task.id,
+      status: "failed",
+      errorClass: "test_failure",
+      errorMessage: "Tests failed",
+      createdAt: timestamp,
+    };
+    const recovered: CoordinationAttempt = {
+      id: "attempt-recovered-result",
+      sessionId: session.id,
+      taskId: task.id,
+      status: "succeeded",
+      retryOfAttemptId: failed.id,
+      createdAt: timestamp,
+    };
+    const events: CoordinationEvent[] = [
+      {
+        id: "event-decision",
+        sessionId: session.id,
+        taskId: task.id,
+        attemptId: failed.id,
+        type: "recovery.decided",
+        payload: {
+          action: "request_approval",
+          reason: "Human review required",
+          nextAgentId: null,
+        },
+        createdAt: timestamp,
+      },
+      {
+        id: "event-approved",
+        sessionId: session.id,
+        type: "session.approved",
+        payload: { reason: "Evidence reviewed" },
+        createdAt: timestamp,
+      },
+    ];
+    const markup = renderToStaticMarkup(
+      <RecoveryPanel
+        session={session}
+        tasks={[task]}
+        attempts={[failed, recovered]}
+        events={events}
+        agentNames={new Map()}
+        busy={false}
+        onApprove={async () => undefined}
+        onReject={async () => undefined}
+      />,
+    );
+
+    expect(markup).toContain("1 · Failure");
+    expect(markup).toContain("2 · Decision");
+    expect(markup).toContain("3 · Outcome");
+    expect(markup).toContain("attempt-original-failure");
+    expect(markup).toContain("attempt-recovered-result");
+    expect(markup).toContain("Follow-up succeeded");
+    expect(markup).not.toContain("Approve and Continue");
+  });
+
   it("renders selectable graph nodes with readable dependency text", () => {
     const tasks = [makeTask("plan"), makeTask("deliver", ["plan"])];
     const markup = renderToStaticMarkup(
