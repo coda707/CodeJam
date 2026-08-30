@@ -67,6 +67,7 @@ The existing Agent CRUD, lifecycle, Playground, persistence, Codex execution and
 
 - Collaboration Gate: choose single Agent or multi-Agent topology with an explanation.
 - Capability-based dynamic Agent selection.
+- User-constrained workflows with explicit Task order and Agent assignment.
 - Time, token, turn and retry budgets.
 - Structured failure classification and targeted recovery.
 - Agent-isolated code changes delivered as patches/commits.
@@ -262,6 +263,30 @@ interface CoordinationEvent {
 9. Failure Classifier selects retry, reassign, re-plan, stop or approval under the remaining budget.
 10. Verified nodes unlock dependent nodes; final integration runs global acceptance tests.
 11. Session completes only when every required node is verified and the final contract passes.
+
+### User-constrained workflow planning
+
+MOSAIC must distinguish an open-ended request from a request that specifies an
+exact collaboration protocol. When the user names an execution order, assigns
+steps to particular Agents, or requires turn-taking, the Planner must represent
+those constraints in its typed output rather than silently replacing them with
+the generic `plan` / `deliver` / `verify` template.
+
+- Compile explicit ordering into validated DAG dependencies.
+- Preserve explicit Agent assignments separately from capability suggestions.
+- Reject missing, conflicting or impossible Agent/ordering constraints before
+  execution; do not silently relax them.
+- Pass the verified predecessor output to each dependent Task.
+- Record whether each assignment came from a user constraint or dynamic Team
+  Builder selection.
+- Keep the Scheduler generic: it executes the validated DAG and must not contain
+  use-case-specific counting logic.
+
+The minimum acceptance example uses two selected Agents to count from 1 through
+10. MOSAIC creates ten sequential Tasks. Odd-numbered Tasks are assigned to
+Agent 1, even-numbered Tasks to Agent 2, and every Task depends on the preceding
+Task. The final verifier checks the exact sequence, that each number appears
+once, and that the recorded Agent IDs alternate on every Attempt.
 
 ## 11. Reliability rules
 

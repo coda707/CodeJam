@@ -60,6 +60,8 @@ Make MOSAIC decide, plan and coordinate correctly. A owns the canonical contract
 - Implement Session state transitions.
 - Implement Collaboration Gate and its explanation.
 - Validate Planner-generated DAGs, including cycles, limits and dependency references.
+- Compile explicit user ordering, fixed assignment and turn-taking constraints
+  into the validated DAG and reject unsatisfiable constraints.
 - Implement capability-based Team Builder.
 - Implement sequential/parallel DAG scheduling, Task readiness and leases.
 - Expose create/start/stop/query coordination routes.
@@ -101,6 +103,9 @@ apps/server/src/types.ts               # final merge owner
 - Invalid/cyclic DAGs fail without partial execution.
 - Ready Tasks are leased once and not duplicated.
 - Different ready Tasks can execute concurrently.
+- A two-Agent alternating workflow preserves all ten dependencies and assigns
+  odd/even Tasks to the requested Agent IDs without Team Builder reassignment.
+- Missing or contradictory constrained Agent IDs fail before any Task executes.
 - Stop reaches all active Tasks and Attempts.
 - Session reaches a correct terminal state after success or unrecoverable failure.
 - Unit tests cover state transitions, DAG validation and idempotency.
@@ -235,6 +240,8 @@ Make the coordination process observable, measurable and understandable, and tur
 - Expose events, artifacts and metrics query routes in coordination with A.
 - Implement Session creation/selection in the React UI.
 - Implement DAG, timeline, Attempt relationship, evidence and metrics views.
+- Display user-constrained versus dynamically selected Task assignments from
+  backend evidence without inferring assignment authority in the browser.
 - Show terminal status and a working stop control.
 - Build deterministic demo fixtures and seed instructions without faking execution.
 - Implement the single/static/MOSAIC evaluation harness and prepare comparison data.

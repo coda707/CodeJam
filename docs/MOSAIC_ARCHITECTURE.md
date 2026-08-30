@@ -133,6 +133,10 @@ from these records — never from fabricated execution state.
 ## Known limitations
 
 - Single-process: coordination shares the baseline JSON store (no cross-process resume).
+- The current heuristic Planner generates generic topology templates and does not
+  yet compile exact user-specified ordering, fixed Agent assignments, or
+  turn-taking protocols into a DAG. The documented two-Agent alternating-count
+  acceptance scenario therefore requires control-plane work before it is usable.
 - The heuristic planner emits only `artifact`/`worker-output` criteria; allowlisted
   command verification runs only when a plan explicitly requests a `command` criterion.
 - `manual_review` criteria are not yet semantically reviewed by an LLM.
