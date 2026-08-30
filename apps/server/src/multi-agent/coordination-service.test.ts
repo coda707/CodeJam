@@ -394,8 +394,9 @@ describe("parallel scheduling", () => {
       participantAgentIds: [],
     });
 
-    expect(tasks).toHaveLength(3);
-    expect(tasks.every((task) => task.dependencies.length === 0)).toBe(true);
+    expect(tasks).toHaveLength(4);
+    expect(tasks.slice(0, 3).every((task) => task.dependencies.length === 0)).toBe(true);
+    expect(tasks[3]?.dependencies).toEqual(tasks.slice(0, 3).map((task) => task.id));
 
     await service.startSession(session.id);
     await service.waitForIdle(session.id);

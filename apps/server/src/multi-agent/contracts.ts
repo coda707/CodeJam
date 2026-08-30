@@ -143,6 +143,7 @@ export const taskNodeSchema = z.strictObject({
   acceptanceCriteria: z.array(acceptanceCriterionSchema).min(1).max(16),
   status: taskStatusSchema,
   assignedAgentId: boundedId.optional(),
+  recoverySourceTaskId: boundedId.optional(),
   attemptCount: z.number().int().min(0).max(5),
   createdAt: timestamp,
   updatedAt: timestamp,
@@ -175,6 +176,7 @@ export const taskAttemptSchema = z.strictObject({
     })
     .optional(),
   workerOutput: workerOutputSchema.optional(),
+  verificationEvidence: z.array(boundedText(2_000)).max(32).optional(),
   createdAt: timestamp,
 });
 

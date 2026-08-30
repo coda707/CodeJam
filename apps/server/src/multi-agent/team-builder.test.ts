@@ -223,4 +223,52 @@ describe("CapabilityTeamBuilder", () => {
       { taskKey: "deliver", agentId: secondId },
     ]);
   });
+
+  it("balances parallel work and does not select a busy Agent when one is ready", async () => {
+    const readyId = randomUUID();
+    const busyId = randomUUID();
+    const plan = {
+      topology: "parallel" as const,
+      explanation: "Parallel work",
+      tasks: ["one", "two", "three"].map((key) => ({
+        ...capabilityPlan.tasks[0]!,
+        key,
+        dependencies: [],
+      })),
+    };
+    const output = await new CapabilityTeamBuilder().select({
+      userTask: "Parallel work",
+      plan,
+      candidateAgentIds: [busyId, readyId],
+      candidates: [
+        { id: busyId, name: "Busy expert", description: "planning", instructions: "", status: "busy" },
+        { id: readyId, name: "Ready", description: "general", instructions: "", status: "ready" },
+      ],
+    });
+    expect(output.assignments.map((assignment) => assignment.agentId)).toEqual([
+      readyId,
+      readyId,
+      readyId,
+    ]);
+  });
+
+  it("round-robins equally loaded ready Agents", async () => {
+    const ids = [randomUUID(), randomUUID()];
+    const plan = {
+      topology: "parallel" as const,
+      explanation: "Parallel work",
+      tasks: ["one", "two", "three", "four"].map((key) => ({
+        ...capabilityPlan.tasks[0]!, key, dependencies: [], requiredCapabilities: [],
+      })),
+    };
+    const output = await new CapabilityTeamBuilder().select({
+      userTask: "Parallel work",
+      plan,
+      candidateAgentIds: ids,
+      candidates: ids.map((id) => ({ id, name: "Agent", description: "", instructions: "", status: "ready" as const })),
+    });
+    expect(output.assignments.map((assignment) => assignment.agentId)).toEqual([
+      ids[0], ids[1], ids[0], ids[1],
+    ]);
+  });
 });

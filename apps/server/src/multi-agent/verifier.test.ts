@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { makeVerificationRequest } from "./test-support/factories.js";
-import { MechanicalCoordinationVerifier } from "./verifier.js";
+import {
+  MechanicalCoordinationVerifier,
+  parseVerificationCommand,
+} from "./verifier.js";
 
 function makeCommandRequest() {
   const request = makeVerificationRequest();
@@ -81,5 +84,40 @@ describe("MechanicalCoordinationVerifier", () => {
     if (result.status === "rejected") {
       expect(result.evidence.join(" ")).toContain("explicitly configured");
     }
+  });
+
+  it("never treats worker-output as an Artifact", async () => {
+    const request = makeVerificationRequest();
+    request.task.acceptanceCriteria = [{
+      id: "legacy-shortcut",
+      kind: "artifact",
+      description: "Legacy shortcut",
+      value: "worker-output",
+    }];
+    request.artifacts = [];
+    await expect(new MechanicalCoordinationVerifier().verify(request)).resolves.toMatchObject({
+      status: "rejected",
+    });
+  });
+
+  it("requires both a real hash and a passing command in strong mode", async () => {
+    const request = makeCommandRequest();
+    request.artifacts = [];
+    const verifier = new MechanicalCoordinationVerifier({
+      requireStrongEvidence: true,
+      commandRunner: { run: async () => ({ exitCode: 0, stdout: "ok", stderr: "" }) },
+    });
+    const result = await verifier.verify(request);
+    expect(result.status).toBe("rejected");
+    if (result.status === "rejected") expect(result.evidence.join(" ")).toContain("SHA-256");
+  });
+
+  it("parses safe argv and rejects shell chaining", () => {
+    expect(parseVerificationCommand("node --test mosaic/final.test.js")).toEqual({
+      executable: "node",
+      args: ["--test", "mosaic/final.test.js"],
+    });
+    expect(parseVerificationCommand("npm test && echo bypassed")).toBeNull();
+    expect(parseVerificationCommand("npm run deploy")).toBeNull();
   });
 });

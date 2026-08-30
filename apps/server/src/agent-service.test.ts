@@ -105,6 +105,45 @@ describe("Agent lifecycle", () => {
     expect(service.getMessages(agent.id)).toHaveLength(0);
     // The coordination Run must not replace the Playground Thread id.
     expect(service.getAgent(agent.id).codexThreadId).toBeNull();
+    expect(service.getRun(run.id).threadId).toBe("fake-thread");
+    expect(service.getRuns(agent.id)).toEqual([]);
+  });
+
+  it("restores Playground state after a failed coordination Run", async () => {
+    let calls = 0;
+    const service = await makeService({
+      run: async (request) => {
+        calls += 1;
+        if (calls === 2) throw new Error("coordination-only failure");
+        return { output: "playground answer", threadId: "playground-thread", usage: null };
+      },
+      cancel: async () => false,
+      isAvailable: async () => true,
+    });
+    const agent = await service.createAgent({ name: "Isolated" });
+    const playground = await service.sendMessage(agent.id, "ordinary chat");
+    await service.waitForRun(playground.run.id);
+    const beforeMessages = service.getMessages(agent.id);
+    const beforeRuns = service.getRuns(agent.id);
+
+    const coordination = await service.sendMessage(agent.id, "private worker prompt", {
+      purpose: "coordination",
+      coordination: {
+        sessionId: randomUUID(),
+        taskId: randomUUID(),
+        attemptId: randomUUID(),
+      },
+    });
+    await service.waitForRun(coordination.run.id);
+
+    expect(service.getRun(coordination.run.id).status).toBe("failed");
+    expect(service.getMessages(agent.id)).toEqual(beforeMessages);
+    expect(service.getRuns(agent.id)).toEqual(beforeRuns);
+    expect(service.getAgent(agent.id)).toMatchObject({
+      status: "ready",
+      codexThreadId: "playground-thread",
+      lastError: null,
+    });
   });
 
   it("atomically accepts only one concurrent run per Agent", async () => {

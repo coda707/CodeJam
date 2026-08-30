@@ -55,7 +55,15 @@ export interface CoordinationTeamBuilder {
 export interface TaskDependencyContext {
   task: TaskNode;
   attempt: TaskAttempt;
-  artifacts: CoordinationArtifact[];
+  artifacts: Array<{
+    artifact: CoordinationArtifact;
+    content: ArtifactContent | null;
+  }>;
+}
+
+export interface TaskRecoveryContext {
+  sourceTask: TaskNode;
+  failedAttempts: TaskAttempt[];
 }
 
 export interface TaskExecutionRequest {
@@ -63,6 +71,7 @@ export interface TaskExecutionRequest {
   task: TaskNode;
   attempt: TaskAttempt;
   dependencyContext: TaskDependencyContext[];
+  recoveryContext?: TaskRecoveryContext;
 }
 
 export type TaskExecutionResult =
@@ -76,6 +85,8 @@ export type TaskExecutionResult =
       status: "failed";
       failureClass: FailureClass;
       error: string;
+      output?: WorkerOutput;
+      verificationEvidence?: string[];
       runId?: string;
       usage?: CoordinationRunUsage;
     };

@@ -16,10 +16,17 @@ const emptyDatabase = (): Database => ({
 
 const normalizeDatabase = (database: Database): Database => ({
   ...database,
-  runs: Array.isArray(database.runs)
-    ? database.runs.map((run) =>
-        run.purpose ? run : { ...run, purpose: "playground" as const },
+  messages: Array.isArray(database.messages)
+    ? database.messages.map((message) =>
+        message.purpose ? message : { ...message, purpose: "playground" as const },
       )
+    : [],
+  runs: Array.isArray(database.runs)
+    ? database.runs.map((run) => ({
+        ...run,
+        purpose: run.purpose ?? ("playground" as const),
+        threadId: run.threadId ?? null,
+      }))
     : [],
   coordinationSessions: Array.isArray(database.coordinationSessions)
     ? database.coordinationSessions
