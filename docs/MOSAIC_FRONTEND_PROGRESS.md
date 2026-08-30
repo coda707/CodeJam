@@ -22,6 +22,8 @@ Implemented frontend work:
 - Human approval and rejection controls backed by the accepted Session APIs.
 - Human-readable Timeline descriptions with the original Event type retained
   as an audit label.
+- Timeline filtering by Task and persisted Event type.
+- Session budget context for concurrency, Attempts, Agent calls, and deadlines.
 - Copy actions for Session, Agent, Task, Attempt, Run, Artifact, and hash values.
 - Responsive layouts from wide desktop to 320 px mobile screens.
 - Dialog semantics, keyboard focus, selected-state semantics, reduced-motion
