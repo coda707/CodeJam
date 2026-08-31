@@ -109,20 +109,39 @@ describe("AgentServiceCoordinationExecutor", () => {
         },
         artifacts: [
           {
-            id: randomUUID(),
-            sessionId: request.session.id,
-            taskId: dependencyTaskId,
-            attemptId: dependencyAttemptId,
-            type: "plan",
-            schemaVersion: 1,
-            sourcePath: "reports/plan.md",
-            contentHash: "a".repeat(64),
-            verificationStatus: "accepted",
-            createdAt: COORDINATION_TEST_TIMESTAMP,
+            artifact: {
+              id: randomUUID(),
+              sessionId: request.session.id,
+              taskId: dependencyTaskId,
+              attemptId: dependencyAttemptId,
+              type: "plan",
+              schemaVersion: 1,
+              sourcePath: "reports/plan.md",
+              contentHash: "a".repeat(64),
+              verificationStatus: "accepted",
+              createdAt: COORDINATION_TEST_TIMESTAMP,
+            },
+            content: {
+              content: "# Verified plan\nImplement in two stages.",
+              sourcePath: "reports/plan.md",
+              contentHash: "a".repeat(64),
+            },
           },
         ],
       },
     ];
+    request.recoveryContext = {
+      sourceTask: request.task,
+      failedAttempts: [
+        {
+          ...request.attempt,
+          status: "failed",
+          errorClass: "test_failure",
+          errorMessage: "node --test exited 1: expected true",
+          verificationEvidence: ["1 test failed"],
+        },
+      ],
+    };
 
     const prompt = buildWorkerPrompt(request);
 
@@ -130,6 +149,9 @@ describe("AgentServiceCoordinationExecutor", () => {
     expect(prompt).toContain("Use a two-stage implementation");
     expect(prompt).toContain("reports/plan.md");
     expect(prompt).toContain("a".repeat(64));
+    expect(prompt).toContain("Implement in two stages");
+    expect(prompt).toContain("node --test exited 1");
+    expect(prompt).toContain("1 test failed");
   });
 
   it("rejects malformed Agent output instead of trusting completion", async () => {

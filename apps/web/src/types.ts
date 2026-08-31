@@ -18,6 +18,7 @@ export interface Message {
   id: string;
   agentId: string;
   runId: string;
+  purpose: "playground";
   role: "user" | "assistant";
   content: string;
   createdAt: string;
@@ -27,6 +28,7 @@ export interface AgentRun {
   id: string;
   agentId: string;
   purpose: "playground" | "coordination";
+  threadId: string | null;
   status: RunStatus;
   prompt: string;
   output: string | null;
@@ -119,6 +121,7 @@ export interface CoordinationTask {
   }>;
   status: CoordinationTaskStatus;
   assignedAgentId?: string;
+  recoverySourceTaskId?: string;
   attemptCount: number;
   createdAt: string;
   updatedAt: string;
@@ -181,6 +184,7 @@ export interface CoordinationAttempt {
     outputTokens?: number;
   };
   workerOutput?: CoordinationWorkerOutput;
+  verificationEvidence?: string[];
 }
 
 export interface CoordinationArtifact {
