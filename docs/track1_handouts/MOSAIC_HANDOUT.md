@@ -294,6 +294,13 @@ Agent 1, even-numbered Tasks to Agent 2, and every Task depends on the preceding
 Task. The final verifier checks the exact sequence, that each number appears
 once, and that the recorded Agent IDs alternate on every Attempt.
 
+The frontend exposes these constraints in the New Session Workflow editor.
+Users can author Task keys and dependencies, request capabilities, pin a Task to
+one selected Agent, or enable round-robin routing in participant order. Every
+Task also records a result file and an allowlisted verification command so the
+real executor cannot report success without captured and mechanically checked
+evidence.
+
 ## 11. Reliability rules
 
 - An Attempt has one Agent and at most one active Run.
@@ -307,8 +314,8 @@ once, and that the recorded Agent IDs alternate on every Attempt.
   messages, and a later Playground turn must not resume a MOSAIC Codex Thread.
 - Coordination Runs remain queryable as audit evidence even when excluded from
   the Playground transcript.
-- Legacy records must be filtered or migrated by their Attempt/Run relationship
-  without deleting genuine Playground history.
+- New records must carry an explicit Playground or coordination purpose. Legacy
+  record migration is outside the project scope.
 - Controlled demo faults must be explicit, one-shot and recorded as fault injection.
 
 ### Playground and coordination isolation acceptance

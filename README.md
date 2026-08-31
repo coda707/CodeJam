@@ -265,6 +265,9 @@ TypeScript owns state, limits, leases, and recovery:
 - **Structured constraint workflows** accept a `workflow` field (ordered tasks,
   explicit `assignedAgentId`, and `turnTaking` round-robin) so the team builder
   never overrides a user's assignment.
+- **Workflow authoring UI** lets users define Task keys, dependencies,
+  capabilities, fixed Agent assignments, round-robin routing, result files, and
+  allowlisted verification commands before creating a Session.
 - **Safe artifact capture** writes files with path/symlink/size guards and
   sha256 content hashing.
 - **Event + metrics projection** persists the whole chain for the timeline,
@@ -283,6 +286,14 @@ npm install
 npm run dev                # server on :3000, web on :5173
 # open http://localhost:5173 → MOSAIC → create a session → Start
 ```
+
+In the New Session panel, select the participant Agents and choose **Add** under
+Workflow to replace heuristic planning with an explicit execution contract.
+Every authored Task includes a captured result file and an allowlisted command
+(`npm test`, `npm run test|build|check`, `npx vitest run`, or `node --test`) so
+Agent-mode completion has mechanical evidence. Enable **Round-robin routing**
+to alternate Tasks in the displayed participant order. A fixed Task assignment
+takes precedence over round-robin routing.
 
 - `Build several independent modules` produces a **parallel** DAG.
 - To watch a failure auto-recover (retry/reassign): restart with

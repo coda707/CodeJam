@@ -9,6 +9,9 @@ Task, Attempt, Artifact, Event, and Metrics state.
 Implemented frontend work:
 
 - Session creation, participant selection, Session history, Start, and Stop.
+- Structured Workflow authoring with Task dependencies, capabilities, fixed
+  Agent assignments, round-robin routing, result files, and allowlisted command
+  verification.
 - Responsive Task graph with exact dependency links and Task selection.
 - Task inspection with instructions, criteria, Agent and Attempt identifiers,
   dependencies, WorkerOutput, and Artifact metadata.
@@ -40,13 +43,15 @@ Primary frontend files:
 - `apps/web/src/types.ts`
 - `apps/web/src/styles.css`
 
-## Validation completed
+## Validation
 
-- Full workspace typecheck, tests, and production build pass in WSL.
+- Web typecheck, component tests, and production build pass in WSL.
 - The deterministic Fake Executor acceptance flow passes.
 - Browser acceptance covers Agent and MOSAIC empty, planning, executing,
   completed, unavailable-runtime, responsive, keyboard, long-content, approval,
   rejection, and recovery states.
+- Workflow authoring and its API round trip are visually accepted at desktop and
+  390 px mobile widths.
 - Approval continuation, rejection termination, and clipboard copy behavior pass
   against the real local API path.
 - The browser console is clean during the accepted flows.
@@ -55,12 +60,11 @@ Primary frontend files:
 
 Work that can continue before the other workstreams:
 
-- Single Agent, Static Team, and MOSAIC execution harnesses that produce real data.
-- Deterministic demo fixtures, critical-flow browser tests, and recording material.
+- Critical-flow browser E2E and repeatable visual-regression coverage.
+- Real, repeated Single Agent, Static Team, and MOSAIC evaluation runs.
+- Deterministic recording fixtures and final submission material.
 - Final demonstration-focused visual refinement.
 
 Work that requires accepted contracts or evidence from Developers A and B:
 
-- Real repair-Task relationships when the backend records them.
-- Safe Artifact preview or download.
 - Final real-executor comparison data and recorded multi-Agent Session.

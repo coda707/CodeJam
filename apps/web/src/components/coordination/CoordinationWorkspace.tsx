@@ -16,6 +16,7 @@ import type {
   CoordinationSession,
   CoordinationTask,
   SystemInfo,
+  Workflow,
 } from "../../types";
 import { CoordinationEmptyState } from "./CoordinationEmptyState";
 import { createDetailRequestGate } from "./detailRequestGate";
@@ -68,6 +69,7 @@ export function CoordinationWorkspace({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [userTask, setUserTask] = useState("");
   const [participantIds, setParticipantIds] = useState<string[]>([]);
+  const [workflow, setWorkflow] = useState<Workflow | null>(null);
   const [busy, setBusy] = useState(false);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
@@ -270,9 +272,11 @@ export function CoordinationWorkspace({
       const result = await api.createCoordinationSession({
         userTask: userTask.trim(),
         participantAgentIds: participantIds,
+        ...(workflow ? { workflow } : {}),
       });
       setUserTask("");
       setParticipantIds([]);
+      setWorkflow(null);
       await refreshSessions();
       selectSession(result.session.id);
     } catch (reason) {
@@ -404,12 +408,14 @@ export function CoordinationWorkspace({
           selectedId={selectedId}
           participantIds={participantIds}
           userTask={userTask}
+          workflow={workflow}
           busy={busy}
           loading={sessionsLoading}
           listUnavailable={workspaceError?.scope === "sessions"}
           usesRealAgents={usesRealAgents}
           onUserTaskChange={setUserTask}
           onToggleParticipant={toggleParticipant}
+          onWorkflowChange={setWorkflow}
           onCreate={createSession}
           onSelect={selectSession}
           onRetrySessions={() => void retrySessions()}

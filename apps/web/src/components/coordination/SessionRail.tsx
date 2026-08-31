@@ -1,6 +1,7 @@
-import type { FormEvent } from "react";
-import type { Agent, CoordinationSession } from "../../types";
+import { useState, type FormEvent } from "react";
+import type { Agent, CoordinationSession, Workflow } from "../../types";
 import { shortId } from "./presentation";
+import { WorkflowEditor } from "./WorkflowEditor";
 
 interface SessionRailProps {
   agents: Agent[];
@@ -8,12 +9,14 @@ interface SessionRailProps {
   selectedId: string | null;
   participantIds: string[];
   userTask: string;
+  workflow: Workflow | null;
   busy: boolean;
   loading: boolean;
   listUnavailable: boolean;
   usesRealAgents: boolean;
   onUserTaskChange: (value: string) => void;
   onToggleParticipant: (agentId: string) => void;
+  onWorkflowChange: (workflow: Workflow | null) => void;
   onCreate: (event: FormEvent) => void;
   onSelect: (sessionId: string) => void;
   onRetrySessions: () => void;
@@ -25,16 +28,31 @@ export function SessionRail({
   selectedId,
   participantIds,
   userTask,
+  workflow,
   busy,
   loading,
   listUnavailable,
   usesRealAgents,
   onUserTaskChange,
   onToggleParticipant,
+  onWorkflowChange,
   onCreate,
   onSelect,
   onRetrySessions,
 }: SessionRailProps) {
+  const [editingWorkflow, setEditingWorkflow] = useState(false);
+  const workflowParticipantMismatch = Boolean(
+    workflow &&
+      (workflow.tasks.some(
+        (task) =>
+          task.assignedAgentId &&
+          !participantIds.includes(task.assignedAgentId),
+      ) ||
+        workflow.turnTaking?.agentIds.some(
+          (agentId) => !participantIds.includes(agentId),
+        )),
+  );
+
   return (
     <aside className="coordination-panel coordination-create-panel">
       <form onSubmit={onCreate}>
@@ -73,12 +91,46 @@ export function SessionRail({
             ))
           )}
         </fieldset>
+        <div className="workflow-entry">
+          <div>
+            <span>Workflow</span>
+            <strong>
+              {workflow
+                ? `${workflow.tasks.length} Task${workflow.tasks.length === 1 ? "" : "s"}${workflow.turnTaking ? " · Round robin" : ""}`
+                : "Planner decides"}
+            </strong>
+          </div>
+          <button
+            type="button"
+            className="button button-ghost"
+            aria-haspopup="dialog"
+            onClick={() => setEditingWorkflow(true)}
+          >
+            {workflow ? "Edit" : "Add"}
+          </button>
+          {workflow && (
+            <button
+              type="button"
+              className="workflow-remove"
+              onClick={() => onWorkflowChange(null)}
+            >
+              Remove
+            </button>
+          )}
+        </div>
+        {workflowParticipantMismatch && (
+          <p className="workflow-entry-warning" role="alert">
+            Participant selection changed. Edit the Workflow before creating the
+            Session.
+          </p>
+        )}
         <button
           className="button button-primary coordination-create"
           disabled={
             busy ||
             loading ||
             !userTask.trim() ||
+            workflowParticipantMismatch ||
             (usesRealAgents && participantIds.length === 0)
           }
         >
@@ -123,6 +175,18 @@ export function SessionRail({
           </p>
         )}
       </nav>
+      {editingWorkflow && (
+        <WorkflowEditor
+          agents={agents}
+          participantIds={participantIds}
+          workflow={workflow}
+          onApply={(nextWorkflow) => {
+            onWorkflowChange(nextWorkflow);
+            setEditingWorkflow(false);
+          }}
+          onClose={() => setEditingWorkflow(false)}
+        />
+      )}
     </aside>
   );
 }

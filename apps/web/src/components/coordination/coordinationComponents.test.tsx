@@ -353,12 +353,14 @@ describe("coordination components", () => {
         selectedId={session.id}
         participantIds={[]}
         userTask=""
+        workflow={null}
         busy={false}
         loading={false}
         listUnavailable={false}
         usesRealAgents={false}
         onUserTaskChange={() => undefined}
         onToggleParticipant={() => undefined}
+        onWorkflowChange={() => undefined}
         onCreate={() => undefined}
         onSelect={() => undefined}
         onRetrySessions={() => undefined}

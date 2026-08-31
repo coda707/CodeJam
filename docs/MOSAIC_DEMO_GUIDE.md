@@ -49,6 +49,12 @@ greeting + reply and a fresh thread, with no Worker prompt leakage.
 
 1. Run `node scripts/demo-counting-workflow.mjs`.
 
+For an interactive demonstration, open MOSAIC, select two participant Agents,
+choose **Add** under Workflow, create the ordered count Tasks, and enable
+**Round-robin routing**. The participant list order is the routing order. Each
+Task must name a result file and an allowlisted verification command; a fixed
+Agent selection on a Task overrides round-robin routing.
+
 **Camera:** the attempts table (count Tasks alternate Agent A/B), the captured
 `count.txt` artifact with its SHA-256, and the `verify` Task passing
 `node --test count.test.mjs`.
@@ -135,6 +141,8 @@ Use this as a pre-flight and per-take list. Cross off each item as captured.
 - [ ] Attempts alternate across exactly two Agents in sequence order.
 - [ ] `verify` Task passes `node --test count.test.mjs`.
 - [ ] `count.txt` artifact captured with a SHA-256.
+- [ ] Workflow summary shows the expected Task count and Round robin before the
+      Session is created.
 
 ### Self-healing (Beats 3–4)
 

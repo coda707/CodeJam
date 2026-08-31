@@ -15,7 +15,7 @@ human approval — while persisting the full evidence chain.
 flowchart TB
     subgraph UX["Experience Layer — React Web UI"]
         UX_AGENT["Agent CRUD · lifecycle · Playground"]
-        UX_MOSAIC["MOSAIC workspace — DAG · timeline · recovery · approval"]
+        UX_MOSAIC["MOSAIC workspace — workflow editor · DAG · timeline · recovery · approval"]
     end
 
     subgraph API["Control Plane — Fastify"]
@@ -72,10 +72,15 @@ sequenceDiagram
     participant REC as RecoveryPolicy
     participant STORE as JSON store
 
-    User->>UI: create session (userTask + Agents)
+    User->>UI: create session (userTask + Agents + optional workflow)
     UI->>SVC: POST /coordination/sessions
-    SVC->>PLAN: plan(userTask)
-    PLAN-->>SVC: validated DAG + topology
+    alt explicit workflow
+        SVC->>PLAN: compile workflow constraints
+        PLAN-->>SVC: validated DAG + fixed/round-robin assignments
+    else open-ended task
+        SVC->>PLAN: plan(userTask)
+        PLAN-->>SVC: validated DAG + topology
+    end
     SVC->>TEAM: select(candidates)
     TEAM-->>SVC: per-Task Agent assignment
     SVC->>STORE: session + tasks + session.created / plan.created / agent.selected
@@ -133,10 +138,9 @@ from these records — never from fabricated execution state.
 ## Known limitations
 
 - Single-process: coordination shares the baseline JSON store (no cross-process resume).
-- The current heuristic Planner generates generic topology templates and does not
-  yet compile exact user-specified ordering, fixed Agent assignments, or
-  turn-taking protocols into a DAG. The documented two-Agent alternating-count
-  acceptance scenario therefore requires control-plane work before it is usable.
+- The Workflow editor supports explicit dependencies, fixed Agent assignments,
+  and round-robin routing. Open-ended requests still use generic heuristic
+  topology templates unless the user authors a Workflow.
 - The heuristic planner emits only `artifact`/`worker-output` criteria; allowlisted
   command verification runs only when a plan explicitly requests a `command` criterion.
 - `manual_review` criteria are not yet semantically reviewed by an LLM.
