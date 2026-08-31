@@ -68,6 +68,8 @@ export interface AgentRun {
   sessionId?: string;
   taskId?: string;
   attemptId?: string;
+  agentStatusBeforeRun?: AgentStatus;
+  agentLastErrorBeforeRun?: string | null;
 }
 
 export interface Database {

@@ -40,7 +40,16 @@ export class AgentService {
       }
       for (const agent of database.agents) {
         if (agent.status === "busy") {
-          agent.status = "ready";
+          const interruptedCoordination = database.runs.find(
+            (run) =>
+              run.agentId === agent.id &&
+              run.purpose === "coordination" &&
+              run.error === "Server restarted while this run was active",
+          );
+          agent.status = interruptedCoordination?.agentStatusBeforeRun ?? "ready";
+          if (interruptedCoordination?.agentLastErrorBeforeRun !== undefined) {
+            agent.lastError = interruptedCoordination.agentLastErrorBeforeRun;
+          }
           agent.updatedAt = now();
         }
       }
@@ -222,6 +231,10 @@ export class AgentService {
       }
       if (storedAgent.status === "busy") {
         throw new HttpError(409, "This Agent is already running");
+      }
+      if (isCoordination) {
+        run.agentStatusBeforeRun = storedAgent.status;
+        run.agentLastErrorBeforeRun = storedAgent.lastError;
       }
       database.runs.push(run);
       if (message) database.messages.push(message);

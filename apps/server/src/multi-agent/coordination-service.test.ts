@@ -403,6 +403,112 @@ describe("parallel scheduling", () => {
 
     expect(service.getSession(session.id).status).toBe("completed");
     expect(maxActive).toBeGreaterThan(1);
+    expect(
+      service
+        .getEvents(session.id)
+        .some((event) => event.type === "integration.completed"),
+    ).toBe(true);
+  });
+
+  it("serializes the same Agent across concurrent Sessions with a per-Agent lease", async () => {
+    const agentId = randomUUID();
+    let active = 0;
+    let maxActive = 0;
+    const service = await makeService({
+      execute: async (request) => {
+        expect(request.attempt.agentId).toBe(agentId);
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        active -= 1;
+        return {
+          status: "succeeded",
+          output: {
+            summary: "done",
+            artifactPaths: [],
+            evidence: [],
+            unresolvedIssues: [],
+          },
+        };
+      },
+      cancel: async () => false,
+    });
+    const first = await service.createSession({
+      userTask: "First",
+      participantAgentIds: [agentId],
+    });
+    const second = await service.createSession({
+      userTask: "Second",
+      participantAgentIds: [agentId],
+    });
+
+    await Promise.all([
+      service.startSession(first.session.id),
+      service.startSession(second.session.id),
+    ]);
+    await Promise.all([
+      service.waitForIdle(first.session.id),
+      service.waitForIdle(second.session.id),
+    ]);
+
+    expect(maxActive).toBe(1);
+    expect(service.getSession(first.session.id).status).toBe("completed");
+    expect(service.getSession(second.session.id).status).toBe("completed");
+  });
+});
+
+describe("failure-driven repair", () => {
+  it("passes failed output and verification logs into the repair Attempt", async () => {
+    const requests: TaskExecutionRequest[] = [];
+    let verificationCalls = 0;
+    const service = await makeService(
+      {
+        execute: async (request) => {
+          requests.push(structuredClone(request));
+          return {
+            status: "succeeded",
+            output: {
+              summary: request.recoveryContext ? "fixed from real failure" : "first implementation",
+              artifactPaths: ["mosaic/result.js"],
+              evidence: ["node --test"],
+              unresolvedIssues: [],
+            },
+          };
+        },
+        cancel: async () => false,
+      },
+      {
+        verifier: {
+          verify: async () => {
+            verificationCalls += 1;
+            return verificationCalls === 1
+              ? {
+                  status: "rejected" as const,
+                  failureClass: "test_failure" as const,
+                  evidence: ["node --test exited 1", "expected 2 but received 1"],
+                }
+              : { status: "accepted" as const, evidence: ["node --test exited 0"] };
+          },
+        },
+        recoveryPolicy: new ClassificationRecoveryPolicy(),
+      },
+    );
+    const { session } = await service.createSession({
+      userTask: "Repair a failing implementation",
+      participantAgentIds: [],
+    });
+
+    await service.startSession(session.id);
+    await service.waitForIdle(session.id);
+
+    const repairRequest = requests.find((request) => request.recoveryContext);
+    expect(repairRequest?.recoveryContext?.failedAttempts[0]).toMatchObject({
+      errorClass: "test_failure",
+      workerOutput: { summary: "first implementation" },
+      verificationEvidence: ["node --test exited 1", "expected 2 but received 1"],
+    });
+    expect(service.getSession(session.id).status).toBe("completed");
+    expect(service.getTasks(session.id).some((task) => task.status === "superseded")).toBe(true);
   });
 });
 
