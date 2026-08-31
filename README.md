@@ -1,5 +1,9 @@
 # Volc Agent Launchpad
 
+> **MOSAIC** — Middleware for Orchestrated, Self-healing, Auditable, Intelligent
+> Collaboration. It turns independent, unreliable AI agents into an adaptive,
+> verifiable, self-healing engineering team. (See the [Devpost copy](docs/DEVPOST_COPY.md).)
+
 A minimal Agent platform for three-day middleware hackathons. It provides Agent
 CRUD, a browser Playground, persistent workspaces, and Codex CLI backed by the
 Volcengine Ark Responses API.
@@ -329,6 +333,20 @@ node scripts/integration-real-agents.mjs
 - Playground isolation is forward-only: runs from before the `purpose` field
   existed are treated as Playground and are not rewritten.
 
+### Future work
+
+Given more time we would:
+
+- Replay the original `workflow` shape on re-plan instead of re-deriving it
+  heuristically, so constrained workflows recover task-for-task.
+- Add semantic (LLM-judge) review for `manual_review` acceptance criteria, with
+  mechanical checks always taking priority.
+- Persist coordination sessions across process restarts (the store is currently
+  single-process).
+- Expose the full coordination trace through a machine-readable query/export API.
+- Run the evaluation harness against real Ark executions, not only the fixture
+  sample.
+
 ## Validation
 
 ```bash
@@ -351,8 +369,19 @@ With the application running, verify the MOSAIC browser/API path with
 - [Hackathon extension guide](docs/HACKATHON_EXTENSION_GUIDE.md)
 - [MOSAIC foundation handout](docs/MOSAIC_FOUNDATION.md)
 - [MOSAIC UI structure](docs/MOSAIC_UI_STRUCTURE.md)
+- [Devpost submission copy](docs/DEVPOST_COPY.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
+
+## Team
+
+Built by three developers with a backend / frontend / evidence split.
+
+| Member | Focus | Contribution |
+| --- | --- | --- |
+| Zhou Zihan | Backend | Coordination control plane (session/task/event contracts, DAG validation, scheduler), Agent execution and Playground isolation, artifact capture and mechanical verification, failure classification and repair/re-plan recovery. |
+| Dai Chuxin | Frontend | React coordination UI — session creation, DAG/timeline/attempt views, recovery and evidence panels, isolated Playground rendering. |
+| Xperiamol | Evaluation & demo | Single/static/MOSAIC evaluation harness, demo scripts and fixtures, documentation and architecture diagram, demo recording. |
 
 ## License
 
