@@ -182,17 +182,18 @@ async function runSingleAgent() {
 }
 
 async function runTeamStrategy(agents, workflow, strategy) {
-  const { session, tasks } = await request("/api/coordination/sessions", "POST", {
+  const { session } = await request("/api/coordination/sessions", "POST", {
     userTask: defaultTask,
     participantAgentIds: agents.map((agent) => agent.id),
     workflow,
   });
   await request(`/api/coordination/sessions/${session.id}/start`, "POST");
   const finished = await pollSession(session.id, ["completed", "failed", "cancelled"]);
-  const [{ metrics }, { attempts }, { events }] = await Promise.all([
+  const [{ metrics }, { attempts }, { events }, { tasks }] = await Promise.all([
     get(`/api/coordination/sessions/${session.id}/metrics`),
     get(`/api/coordination/sessions/${session.id}/attempts`),
     get(`/api/coordination/sessions/${session.id}/events`),
+    get(`/api/coordination/sessions/${session.id}/tasks`),
   ]);
 
   const criteriaOf = (task) => task.acceptanceCriteria ?? [];
