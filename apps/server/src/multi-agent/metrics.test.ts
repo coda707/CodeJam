@@ -79,4 +79,30 @@ describe("projectCoordinationMetrics", () => {
       recoveryStatus: "succeeded",
     });
   });
+
+  it("counts a successful repair Task as recovered", () => {
+    const session = makeCoordinationSession({ status: "completed" });
+    const original = makeTaskNode(session, {
+      status: "superseded",
+      attemptCount: 1,
+    });
+    const repair = makeTaskNode(session, {
+      status: "succeeded",
+      recoverySourceTaskId: original.id,
+      attemptCount: 1,
+    });
+    const failedAttempt = makeTaskAttempt(session, original, { status: "failed" });
+    const repairedAttempt = makeTaskAttempt(session, repair, { status: "succeeded" });
+
+    const metrics = projectCoordinationMetrics(
+      session,
+      [original, repair],
+      [failedAttempt, repairedAttempt],
+      [],
+      [],
+    );
+
+    expect(metrics.recoveredTasks).toBe(1);
+    expect(metrics.recoveryStatus).toBe("succeeded");
+  });
 });

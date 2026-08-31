@@ -87,9 +87,27 @@ async function pollRun(runId, terminal) {
 // Benchmark definition (shared across strategies)
 // ---------------------------------------------------------------------------
 const deliverables = [
-  { key: "plan", title: "Plan", instructions: "Write a short implementation plan for a greet(name) function." },
-  { key: "implement", title: "Implement", instructions: "Implement greet(name) in a single function, with a one-line usage note." },
-  { key: "document", title: "Document", instructions: "Document how greet(name) behaves for one caller in one paragraph." },
+  {
+    key: "plan",
+    title: "Plan",
+    resultPath: "mosaic/plan.md",
+    testPath: "mosaic/plan.test.mjs",
+    instructions: "Write a short implementation plan for greet(name) to mosaic/plan.md. Create mosaic/plan.test.mjs to verify the plan names the function and expected greeting. Run the test and report both files in artifactPaths.",
+  },
+  {
+    key: "implement",
+    title: "Implement",
+    resultPath: "mosaic/greet.mjs",
+    testPath: "mosaic/greet.test.mjs",
+    instructions: "Implement greet(name) in mosaic/greet.mjs. Create mosaic/greet.test.mjs to verify greet('MOSAIC') returns 'Hello, MOSAIC!'. Run the test and report both files in artifactPaths.",
+  },
+  {
+    key: "document",
+    title: "Document",
+    resultPath: "mosaic/README.md",
+    testPath: "mosaic/document.test.mjs",
+    instructions: "Document greet(name), its exact return format, and one usage example in mosaic/README.md. Create mosaic/document.test.mjs to verify those details are present. Run the test and report both files in artifactPaths.",
+  },
 ];
 
 const taskName = "greet(name): plan + implement + document";
@@ -100,7 +118,20 @@ const teamSpecs = [
   { name: "Writer", description: "documentation and reporting", instructions: "You document results." },
 ];
 
-const artifactCriterion = (id, description) => ({ id, kind: "artifact", value: "worker-output", description });
+const acceptanceCriteriaFor = (deliverable) => [
+  {
+    id: `${deliverable.key}-file`,
+    kind: "file_exists",
+    value: deliverable.resultPath,
+    description: `Captured ${deliverable.resultPath}`,
+  },
+  {
+    id: `${deliverable.key}-test`,
+    kind: "command",
+    value: `node --test ${deliverable.testPath}`,
+    description: `Verified ${deliverable.title}`,
+  },
+];
 
 async function createAgent(spec) {
   const { agent } = await request("/api/agents", "POST", spec);
@@ -121,7 +152,7 @@ async function runSingleAgent() {
   const prompt = [
     "Complete this task yourself, end to end.",
     defaultTask,
-    "Return: (1) a plan, (2) an implementation of greet(name), (3) one paragraph of documentation.",
+    "Create plan.md, greet.mjs, greet.test.mjs, and README.md. Run node --test greet.test.mjs before reporting the result.",
   ].join("\n");
   const { run } = await request(`/api/agents/${agent.id}/messages`, "POST", { content: prompt });
   const finished = await pollRun(run.id, ["completed", "failed", "cancelled"]);
@@ -459,7 +490,7 @@ if (hasFlag("fixture")) {
       title: deliverable.title,
       instructions: deliverable.instructions,
       dependencies: index === 0 ? [] : [deliverables[index - 1].key],
-      acceptanceCriteria: [artifactCriterion(deliverable.key, `Delivered ${deliverable.title}`)],
+      acceptanceCriteria: acceptanceCriteriaFor(deliverable),
       assignedAgentId: staticAgents[index].id,
     })),
   };
@@ -475,7 +506,7 @@ if (hasFlag("fixture")) {
       title: deliverable.title,
       instructions: deliverable.instructions,
       dependencies: index === 0 ? [] : [deliverables[index - 1].key],
-      acceptanceCriteria: [artifactCriterion(deliverable.key, `Delivered ${deliverable.title}`)],
+      acceptanceCriteria: acceptanceCriteriaFor(deliverable),
     })),
     turnTaking: { agentIds: mosaicAgents.map((agent) => agent.id), pattern: "round_robin" },
   };

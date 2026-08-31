@@ -60,7 +60,7 @@ if (config.coordinationDemoFault !== "off") {
     test_failure: {
       taskTitleMatch: "Verify",
       failureClass: "test_failure" as const,
-      error: "Simulated acceptance-test failure for the approval demo",
+      error: "Controlled acceptance-test failure for the recovery demo",
     },
     capability: {
       taskTitleMatch: "Implement",
@@ -94,7 +94,7 @@ const workspaceCommandRunner: CoordinationCommandRunner = {
         maxBuffer: 1_024 * 1_024,
         windowsHide: true,
       }, (error, stdout, stderr) => {
-        const code = (error as NodeJS.ErrnoException).code;
+        const code = (error as NodeJS.ErrnoException | null)?.code;
         const exitCode = error == null ? 0 : typeof code === "number" ? code : -1;
         resolve({
           exitCode,

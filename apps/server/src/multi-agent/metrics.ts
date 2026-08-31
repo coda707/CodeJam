@@ -21,7 +21,9 @@ export function projectCoordinationMetrics(
   ).length;
   const retryAttempts = attempts.filter((attempt) => attempt.retryOfAttemptId).length;
   const recoveredTasks = tasks.filter(
-    (task) => task.status === "succeeded" && task.attemptCount > 1,
+    (task) =>
+      task.status === "succeeded" &&
+      (task.attemptCount > 1 || task.recoverySourceTaskId !== undefined),
   ).length;
   const active = [
     "forming_team",
