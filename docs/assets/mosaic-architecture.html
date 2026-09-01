@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MOSAIC Architecture</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #ffffff; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1200" viewBox="0 0 1240 1200" font-family="Segoe UI, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect x="0" y="0" width="1240" height="1200" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="620" y="64" text-anchor="middle" font-size="42" font-weight="700" fill="#0f172a">MOSAIC</text>
+  <text x="620" y="98" text-anchor="middle" font-size="16" fill="#475569">Middleware for Orchestrated, Self-healing, Auditable, Intelligent Collaboration</text>
+  <text x="620" y="122" text-anchor="middle" font-size="12.5" fill="#94a3b8">Track 1 · Agent Launchpad — team-designed coordination middleware · one page</text>
+
+  <!-- LAYER 1 — Experience Layer -->
+  <rect x="40" y="150" width="1160" height="122" rx="14" fill="#eef2ff" stroke="#c7d2fe" stroke-width="1.5"/>
+  <text x="56" y="178" font-size="13.5" font-weight="700" fill="#4338ca" letter-spacing="0.5">EXPERIENCE LAYER — REACT WEB UI</text>
+  <rect x="56" y="192" width="556" height="64" rx="8" fill="#ffffff" stroke="#e0e7ff" stroke-width="1"/>
+  <text x="72" y="216" font-size="13.5" font-weight="600" fill="#1e293b">Agent CRUD · lifecycle · Playground</text>
+  <text x="72" y="236" font-size="11.5" fill="#64748b">create / edit / start / stop / delete · multi-turn chat</text>
+  <rect x="628" y="192" width="556" height="64" rx="8" fill="#ffffff" stroke="#e0e7ff" stroke-width="1"/>
+  <text x="644" y="216" font-size="13.5" font-weight="600" fill="#1e293b">MOSAIC workspace</text>
+  <text x="644" y="236" font-size="11.5" fill="#64748b">workflow editor · DAG · timeline · recovery · approval</text>
+
+  <line x1="620" y1="272" x2="620" y2="306" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 2 — Control Plane -->
+  <rect x="40" y="308" width="1160" height="110" rx="14" fill="#ecfdf5" stroke="#a7f3d0" stroke-width="1.5"/>
+  <text x="56" y="336" font-size="13.5" font-weight="700" fill="#047857" letter-spacing="0.5">CONTROL PLANE — FASTIFY</text>
+  <rect x="56" y="350" width="556" height="52" rx="8" fill="#ffffff" stroke="#d1fae5" stroke-width="1"/>
+  <text x="72" y="373" font-size="13" font-weight="600" fill="#1e293b">Agent + Playground routes</text>
+  <text x="72" y="391" font-size="11.5" fill="#64748b">Runs · messages · lifecycle</text>
+  <rect x="628" y="350" width="556" height="52" rx="8" fill="#ffffff" stroke="#d1fae5" stroke-width="1"/>
+  <text x="644" y="373" font-size="13" font-weight="600" fill="#1e293b">Coordination routes</text>
+  <text x="644" y="391" font-size="11.5" fill="#64748b">create · start · stop · approve · reject</text>
+
+  <line x1="620" y1="418" x2="620" y2="452" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 3 — Coordination Middleware (core) -->
+  <rect x="40" y="454" width="1160" height="264" rx="14" fill="#fffbeb" stroke="#f59e0b" stroke-width="1.8"/>
+  <text x="56" y="482" font-size="13.5" font-weight="700" fill="#b45309" letter-spacing="0.5">COORDINATION MIDDLEWARE — COORDINATIONSERVICE (core)</text>
+
+  <rect x="56" y="496" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="72" y="520" font-size="13" font-weight="600" fill="#1e293b">CollaborationGate</text>
+  <text x="72" y="540" font-size="11.5" fill="#64748b">single · sequential · parallel · dag</text>
+  <text x="72" y="556" font-size="11.5" fill="#64748b">decide when to collaborate</text>
+
+  <rect x="344" y="496" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="360" y="520" font-size="13" font-weight="600" fill="#1e293b">Planner</text>
+  <text x="360" y="540" font-size="11.5" fill="#64748b">Zod-validated DAG</text>
+  <text x="360" y="556" font-size="11.5" fill="#64748b">task decomposition</text>
+
+  <rect x="632" y="496" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="648" y="520" font-size="13" font-weight="600" fill="#1e293b">CapabilityTeamBuilder</text>
+  <text x="648" y="540" font-size="11.5" fill="#64748b">capability scoring → assignment</text>
+  <text x="648" y="556" font-size="11.5" fill="#64748b">never overrides constraints</text>
+
+  <rect x="920" y="496" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="936" y="520" font-size="13" font-weight="600" fill="#1e293b">Graph scheduler</text>
+  <text x="936" y="540" font-size="11.5" fill="#64748b">parallel waves · atomic leases</text>
+  <text x="936" y="556" font-size="11.5" fill="#64748b">no double execution</text>
+
+  <rect x="198" y="588" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="214" y="612" font-size="13" font-weight="600" fill="#1e293b">MechanicalVerifier</text>
+  <text x="214" y="632" font-size="11.5" fill="#64748b">artifact + allowlisted command</text>
+  <text x="214" y="648" font-size="11.5" fill="#64748b">exit-code gate</text>
+
+  <rect x="486" y="588" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="502" y="612" font-size="13" font-weight="600" fill="#1e293b">ClassificationRecoveryPolicy</text>
+  <text x="502" y="632" font-size="11.5" fill="#64748b">retry · reassign · approve · stop</text>
+  <text x="502" y="648" font-size="11.5" fill="#64748b">bounded by maxAttempts</text>
+
+  <rect x="774" y="588" width="268" height="72" rx="8" fill="#ffffff" stroke="#fde68a" stroke-width="1"/>
+  <text x="790" y="612" font-size="13" font-weight="600" fill="#1e293b">FileArtifactStore</text>
+  <text x="790" y="632" font-size="11.5" fill="#64748b">sha256 · path / symlink / size guards</text>
+  <text x="790" y="648" font-size="11.5" fill="#64748b">bounded, hashed capture</text>
+
+  <line x1="620" y1="718" x2="620" y2="752" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 4 — Execution & Runtime (left) -->
+  <rect x="40" y="754" width="840" height="122" rx="14" fill="#f0f9ff" stroke="#bae6fd" stroke-width="1.5"/>
+  <text x="56" y="782" font-size="13.5" font-weight="700" fill="#0369a1" letter-spacing="0.5">EXECUTION &amp; RUNTIME</text>
+  <rect x="56" y="796" width="396" height="64" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+  <text x="72" y="820" font-size="13" font-weight="600" fill="#1e293b">Executor</text>
+  <text x="72" y="840" font-size="11.5" fill="#64748b">Fake (default) · AgentService (real) · fault-injected</text>
+  <rect x="468" y="796" width="396" height="64" rx="8" fill="#ffffff" stroke="#e0f2fe" stroke-width="1"/>
+  <text x="484" y="820" font-size="13" font-weight="600" fill="#1e293b">AgentService → Codex CLI</text>
+  <text x="484" y="840" font-size="11.5" fill="#64748b">local-process · container</text>
+
+  <!-- Ark API (right, untrusted) -->
+  <rect x="920" y="754" width="280" height="122" rx="14" fill="#fef2f2" stroke="#fecaca" stroke-width="1.5"/>
+  <text x="936" y="782" font-size="13.5" font-weight="700" fill="#b91c1c" letter-spacing="0.5">VOLCENGINE ARK</text>
+  <text x="936" y="800" font-size="10.5" fill="#dc2626">external · untrusted</text>
+  <text x="936" y="828" font-size="13.5" font-weight="600" fill="#1e293b">Responses API</text>
+  <text x="936" y="848" font-size="11.5" fill="#64748b">model inference</text>
+
+  <line x1="880" y1="815" x2="916" y2="815" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <line x1="620" y1="876" x2="620" y2="910" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LAYER 5 — Data Layer -->
+  <rect x="40" y="912" width="1160" height="84" rx="14" fill="#faf5ff" stroke="#e9d5ff" stroke-width="1.5"/>
+  <text x="56" y="940" font-size="13.5" font-weight="700" fill="#7e22ce" letter-spacing="0.5">DATA LAYER — JSON STORE</text>
+  <text x="56" y="966" font-size="13.5" font-weight="600" fill="#1e293b">sessions · tasks · attempts · artifacts · events</text>
+  <text x="56" y="984" font-size="11.5" fill="#64748b">full evidence chain · typed CoordinationEvent projection into metrics</text>
+
+  <!-- Trust boundary -->
+  <rect x="40" y="1032" width="1160" height="74" rx="12" fill="none" stroke="#cbd5e1" stroke-width="1.5" stroke-dasharray="6 6"/>
+  <text x="620" y="1058" text-anchor="middle" font-size="13" font-weight="600" fill="#334155">Trust boundary — LLMs propose semantics; deterministic TypeScript owns state, limits, leases, and recovery.</text>
+  <text x="620" y="1082" text-anchor="middle" font-size="12" fill="#64748b">Every Agent / model result is re-validated at the middleware boundary before it changes state.</text>
+
+  <!-- Footer -->
+  <text x="620" y="1150" text-anchor="middle" font-size="11.5" fill="#94a3b8">docs/MOSAIC_ARCHITECTURE.md</text>
+</svg>
+</body>
+</html>
