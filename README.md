@@ -39,8 +39,10 @@ TypeScript owns state, limits, leases, and recovery:
 
 ## MOSAIC Architecture
 
+![](docs/assets/architecture_mosaic.jpg)
+
 See [the one-page MOSAIC architecture diagram](docs/MOSAIC_ARCHITECTURE.md)
-for the coordination data flow, trust boundaries, verification point, and
+for the full information of coordination data flow, trust boundaries, verification point, and
 recovery path.
 
 ## MOSAIC Screenshots
